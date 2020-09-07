@@ -4,8 +4,16 @@ use sprs::{CompressedStorage, CsMat, CsMatView};
 
 /// An interface for the sparse matrix and dense vector multiplication.
 pub trait MatVecMul<T: Num + Copy> {
+    /// Multiply this matrix with the provided vector `v_in` and put the results
+    /// in `v_out`.
+    /// 
+    /// This method will check the dimension agreement and panick if the dimensions don't match.
     fn mul_vec<IN: DenseVec<T>, OUT: DenseVecMut<T>>(&self, v_in: &IN, v_out: &mut OUT);
 
+    /// # Safety
+    /// 
+    /// This method will not check the dimension agreement. If the dimensions don't match, 
+    /// they will result in *[undefined behavior](https://doc.rust-lang.org/reference/behavior-considered-undefined.html)*.
     unsafe fn mul_vec_unchecked<IN: DenseVec<T>, OUT: DenseVecMut<T>>(
         &self,
         v_in: &IN,
@@ -19,9 +27,10 @@ impl<'a, T: Num + Copy> MatVecMul<T> for CsMatView<'a, T> {
         if self.cols() != v_in.dim() || v_in.dim() != v_out.dim() {
             panic!("Dimension mismatch");
         }
-        unsafe { self.mul_vec_unchecked(v_in, v_out) }
+        unsafe { self.mul_vec_unchecked(v_in, v_out); }
     }
 
+    // This is very much identical to `mul_acc_mat_vec_csr` method provided in sprs crate.
     unsafe fn mul_vec_unchecked<IN: DenseVec<T>, OUT: DenseVecMut<T>>(
         &self,
         v_in: &IN,
@@ -49,7 +58,6 @@ impl<'a, T: Num + Copy> MatVecMul<T> for CsMatView<'a, T> {
     }
 }
 
-// This is very much identical to `mul_acc_mat_vec_csr` method provided in sprs crate.
 impl<T: Num + Copy> MatVecMul<T> for CsMat<T> {
     #[inline]
     fn mul_vec<IN: DenseVec<T>, OUT: DenseVecMut<T>>(&self, v_in: &IN, v_out: &mut OUT) {
@@ -103,13 +111,13 @@ mod tests {
 
         let mat =
             CsMatView::new_view(CompressedStorage::CSR, (5, 5), indptr, indices, data).unwrap();
-        let slice = [0.1, 0.2, -0.1, 0.3, 0.9];
-        let mut res_vec = [0., 0., 0., 0., 0.];
-        mat.mul_vec(&slice, &mut res_vec);
+        let slice = vec![0.1, 0.2, -0.1, 0.3, 0.9];
+        let mut res_vec = vec![0., 0., 0., 0., 0.];
+        unsafe { mat.mul_vec_unchecked(&slice, &mut res_vec); }
 
         let expected_output = vec![0.22527496, 0., 0.17814121, 0.35319787, 0.51482166];
 
-        let epsilon = 1e-7; // TODO: get better values and increase precision
+        let epsilon = 1e-8;
 
         assert!(res_vec
             .iter()

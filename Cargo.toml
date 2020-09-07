@@ -1,5 +1,5 @@
 [package]
-name = "pilea"
+name = "sprsolve"
 version = "0.1.0"
 authors = ["Changxi Zheng <cxz@cs.columbia.edu>"]
 edition = "2018"

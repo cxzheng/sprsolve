@@ -60,6 +60,7 @@ dense_vec_mut_impl! {<T>, T, [T]}
 dense_vec_mut_impl! {<'a, T>, T, &'a mut[T]}
 dense_vec_mut_impl! {<T>, T, Vec<T>}
 
+/* the following impl. requires #![feature(min_const_generics)]
 impl<T, const N: usize> DenseVec<T> for [T; N] {
     #[inline]
     fn dim(&self) -> usize {
@@ -78,7 +79,6 @@ impl<T, const N: usize> DenseVec<T> for [T; N] {
 }
 
 impl<T, const N: usize> DenseVecMut<T> for [T; N] {
-
     #[inline]
     fn val_mut(&mut self, id: usize) -> Option<&mut T> {
         self.get_mut(id)
@@ -89,6 +89,7 @@ impl<T, const N: usize> DenseVecMut<T> for [T; N] {
         self.get_unchecked_mut(id)
     }
 }
+*/
 
 #[cfg(test)]
 mod tests {

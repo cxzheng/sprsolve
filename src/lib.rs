@@ -1,9 +1,10 @@
-#![feature(min_const_generics)]
+//#![feature(min_const_generics)]
 
 mod mat;
 mod vec;
 
 pub use vec::{DenseVec, DenseVecMut};
+pub use mat::MatVecMul;
 
 /// An interface for the preconditioner.
 ///
