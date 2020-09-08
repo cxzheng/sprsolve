@@ -3,13 +3,9 @@
 pub mod error;
 mod gauss_seidel;
 mod mat;
-mod vec;
-mod scalar;
 
-pub use scalar::*;
 pub use gauss_seidel::*;
 pub use mat::MatVecMul;
-pub use vec::{DenseVec, DenseVecMut};
 
 /// An interface for the preconditioner.
 ///
