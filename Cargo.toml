@@ -13,8 +13,10 @@ default = ["multi_thread"]
 multi_thread = ["rayon", "sprs/multi_thread"]
 
 [dependencies]
+thiserror = "1.0"
+cauchy = "0.3"
 num-traits = "0.2"
-num-complex = "0.2"
+num-complex = "0.3"
 sprs = { path = "sprs", default-features = false }
 
 rayon = { version = "1.3", optional = true }
