@@ -38,7 +38,7 @@ impl<'a, T: Scalar> MatVecMul<T> for CsMatView<'a, T> {
                 for (row_ind, vec) in self.outer_iterator().enumerate() {
                     let t = v_out.get_unchecked_mut(row_ind);
                     for (col_ind, &value) in vec.iter() {
-                        *t = *t + *v_in.get_unchecked(col_ind) * value;
+                        *t += *v_in.get_unchecked(col_ind) * value;
                     }
                 }
             }
@@ -48,7 +48,7 @@ impl<'a, T: Scalar> MatVecMul<T> for CsMatView<'a, T> {
                     let multiplier = v_in.get_unchecked(col_ind);
                     for (row_ind, &value) in vec.iter() {
                         let t = v_out.get_unchecked_mut(row_ind);
-                        *t = *t + *multiplier * value;
+                        *t += *multiplier * value;
                     }
                 }
             }
