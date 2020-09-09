@@ -14,7 +14,7 @@ fn test_gauss_seidel() {
 
     let mut x = vec![0_f64; rows * cols];
     let mut solver = sprsolve::GaussSeidel::new(lap.view()).unwrap();
-    let (iters, res) = solver.solve(rhs.as_slice(), x.as_mut_slice(), 300, 0.).unwrap();
+    let (iters, res) = solver.solve(rhs.as_slice(), &mut x, 300, 0.).unwrap();
     println!("Solved system in {} iterations with residual error {}", iters, res.sqrt());
     for i in 0..rows {
         for j in 0..cols {

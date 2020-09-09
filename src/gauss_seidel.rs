@@ -30,7 +30,7 @@ impl<'data, T: Scalar> GaussSeidel<'data, T> {
         })
     }
 
-    pub fn solve<'b, IN: for<'a> DenseVec<'a, T>, OUT: 'b + DenseVecMut<'b, T>>(
+    pub fn solve<'b, IN: for<'a> DenseVec<'a, T>, OUT: 'b + DenseVecMut<'b, T> + Copy>(
         &mut self, rhs: IN, mut x: OUT, max_iter: usize,
         eps: T::Real,
     ) -> SolveResult<(usize, T::Real)> {
