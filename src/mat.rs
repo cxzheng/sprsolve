@@ -1,5 +1,5 @@
-use cauchy::Scalar;
 use super::{DenseVec, DenseVecMut};
+use cauchy::Scalar;
 use sprs::{CompressedStorage, CsMat, CsMatView};
 
 /// An interface for the sparse matrix and dense vector multiplication.
@@ -8,19 +8,31 @@ pub trait MatVecMul<T: Scalar> {
     /// in `v_out`.
     ///
     /// This method will check the dimension agreement and panick if the dimensions don't match.
-    fn mul_vec<'a, IN: 'a + DenseVec<'a, T>, OUT: for<'b> DenseVecMut<'b, T>>(&self, v_in: IN, v_out: OUT);
+    fn mul_vec<'a, IN: 'a + DenseVec<'a, T>, OUT: for<'b> DenseVecMut<'b, T>>(
+        &self,
+        v_in: IN,
+        v_out: OUT,
+    );
 
     /// # Safety
     ///
     /// This method will not check the dimension agreement. If the dimensions don't match,
     /// they will result in *[undefined behavior](https://doc.rust-lang.org/reference/behavior-considered-undefined.html)*.
-    unsafe fn mul_vec_unchecked<'a, IN: 'a + DenseVec<'a, T>, OUT: for<'b> DenseVecMut<'b, T>>(&self, v_in: IN, v_out: OUT);
+    unsafe fn mul_vec_unchecked<'a, IN: 'a + DenseVec<'a, T>, OUT: for<'b> DenseVecMut<'b, T>>(
+        &self,
+        v_in: IN,
+        v_out: OUT,
+    );
 }
 
 // 'a refers to the lt of data in CSMatView
 impl<'a, T: Scalar> MatVecMul<T> for CsMatView<'a, T> {
     #[inline]
-    fn mul_vec<'va, IN: 'va + DenseVec<'va, T>, OUT: for<'vb> DenseVecMut<'vb, T>>(&self, v_in: IN, v_out: OUT) {
+    fn mul_vec<'va, IN: 'va + DenseVec<'va, T>, OUT: for<'vb> DenseVecMut<'vb, T>>(
+        &self,
+        v_in: IN,
+        v_out: OUT,
+    ) {
         if self.cols() != v_in.dim() || v_in.dim() != v_out.dim() {
             panic!("Dimension mismatch");
         }
@@ -31,7 +43,15 @@ impl<'a, T: Scalar> MatVecMul<T> for CsMatView<'a, T> {
 
     // This is very much identical to `mul_acc_mat_vec_csr` method provided in sprs crate.
     // Here 'va refers to the lt of data in DenseVec
-    unsafe fn mul_vec_unchecked<'va, IN: 'va + DenseVec<'va, T>, OUT: for<'vb> DenseVecMut<'vb, T>>(&self, v_in: IN, mut v_out: OUT) {
+    unsafe fn mul_vec_unchecked<
+        'va,
+        IN: 'va + DenseVec<'va, T>,
+        OUT: for<'vb> DenseVecMut<'vb, T>,
+    >(
+        &self,
+        v_in: IN,
+        mut v_out: OUT,
+    ) {
         v_out.iter_mut().for_each(|v| *v = T::zero());
 
         match self.storage() {
@@ -59,12 +79,24 @@ impl<'a, T: Scalar> MatVecMul<T> for CsMatView<'a, T> {
 
 impl<T: Scalar> MatVecMul<T> for CsMat<T> {
     #[inline]
-    fn mul_vec<'va, IN: 'va + DenseVec<'va, T>, OUT: for<'vb> DenseVecMut<'vb, T>>(&self, v_in: IN, v_out: OUT) {
+    fn mul_vec<'va, IN: 'va + DenseVec<'va, T>, OUT: for<'vb> DenseVecMut<'vb, T>>(
+        &self,
+        v_in: IN,
+        v_out: OUT,
+    ) {
         self.view().mul_vec(v_in, v_out);
     }
 
     #[inline]
-    unsafe fn mul_vec_unchecked<'va, IN: 'va + DenseVec<'va, T>, OUT: for<'vb> DenseVecMut<'vb, T>>(&self, v_in: IN, v_out: OUT) {
+    unsafe fn mul_vec_unchecked<
+        'va,
+        IN: 'va + DenseVec<'va, T>,
+        OUT: for<'vb> DenseVecMut<'vb, T>,
+    >(
+        &self,
+        v_in: IN,
+        v_out: OUT,
+    ) {
         self.view().mul_vec_unchecked(v_in, v_out);
     }
 }

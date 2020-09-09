@@ -1,7 +1,8 @@
-use super::{error::*, MatVecMul, DenseVec, DenseVecMut};
+use super::{error::*, DenseVec, DenseVecMut, MatVecMul};
 use cauchy::Scalar;
 use num_traits::{float::*, Zero};
 use sprs::CsMatView;
+use std::ops::Deref;
 
 /// A naive impl of Gauss-Seidel solver.
 #[allow(non_snake_case)]
@@ -30,10 +31,18 @@ impl<'data, T: Scalar> GaussSeidel<'data, T> {
         })
     }
 
-    pub fn solve<'b, IN: for<'a> DenseVec<'a, T>, OUT: 'b + DenseVecMut<'b, T> + Copy>(
-        &mut self, rhs: IN, mut x: OUT, max_iter: usize,
+    pub fn solve<V, IN, OUT>(
+        &mut self,
+        rhs: IN,
+        mut x: OUT,
+        max_iter: usize,
         eps: T::Real,
-    ) -> SolveResult<(usize, T::Real)> {
+    ) -> SolveResult<(usize, T::Real)>
+    where
+        for<'d> &'d V: DenseVec<'d, T>,
+        IN: for<'a> DenseVec<'a, T>,
+        OUT: for<'b> DenseVecMut<'b, T> + Deref<Target = V>,
+    {
         // check the format
         if rhs.dim() != self.A.rows() {
             return Err(SolverError::IncompatibleMatrixFormat(String::from(
@@ -83,7 +92,8 @@ impl<'data, T: Scalar> GaussSeidel<'data, T> {
         }
 
         unsafe {
-            self.A.mul_vec_unchecked(x, &mut self.workspace[0..n_rows]);
+            self.A
+                .mul_vec_unchecked(&*x, &mut self.workspace[0..n_rows]);
         }
         // r = A*x - b
         self.workspace
@@ -119,7 +129,8 @@ impl<'data, T: Scalar> GaussSeidel<'data, T> {
             }
 
             unsafe {
-                self.A.mul_vec_unchecked(x, &mut self.workspace[0..n_rows]);
+                self.A
+                    .mul_vec_unchecked(&*x, &mut self.workspace[0..n_rows]);
             }
             // r = A*x - b
             self.workspace

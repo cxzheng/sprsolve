@@ -1,4 +1,5 @@
-pub trait DenseVec<'a, T: 'a> { // Here we need T to have a lt of 'a to allow the associated type
+pub trait DenseVec<'a, T: 'a> {
+    // Here we need T to have a lt of 'a to allow the associated type
     type Iter: Iterator<Item = &'a T>;
 
     fn iter(&'a self) -> Self::Iter;
@@ -47,7 +48,7 @@ macro_rules! dense_vec_impl {
                 <[$elem]>::get_unchecked(self, id)
             }
         }
-    }
+    };
 }
 
 macro_rules! dense_vec_mut_impl {
@@ -70,7 +71,7 @@ macro_rules! dense_vec_mut_impl {
                 <[$elem]>::get_unchecked_mut(self, id)
             }
         }
-    }
+    };
 }
 
 // Note: we purposely exclude the stack-allocated array so that the
@@ -78,10 +79,10 @@ macro_rules! dense_vec_mut_impl {
 //dense_vec_impl! {<T>, T, [T]}
 //dense_vec_mut_impl! {<T>, T, [T]}
 
-dense_vec_impl! {T, &[T], std::slice::Iter<'a, T>} 
-dense_vec_impl! {T, Vec<T>, std::slice::Iter<'a, T>} 
-dense_vec_impl! {T, &Vec<T>, std::slice::Iter<'a, T>} 
-dense_vec_impl! {T, &mut Vec<T>, std::slice::Iter<'a, T>} 
+dense_vec_impl! {T, &[T], std::slice::Iter<'a, T>}
+dense_vec_impl! {T, Vec<T>, std::slice::Iter<'a, T>}
+dense_vec_impl! {T, &Vec<T>, std::slice::Iter<'a, T>}
+dense_vec_impl! {T, &mut Vec<T>, std::slice::Iter<'a, T>}
 dense_vec_impl! {T, &mut [T], std::slice::Iter<'a, T>}
 
 dense_vec_mut_impl! {T, &mut[T], std::slice::IterMut<'a, T>}

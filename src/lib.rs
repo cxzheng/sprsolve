@@ -6,8 +6,8 @@ mod mat;
 mod vec;
 
 pub use gauss_seidel::*;
-pub use vec::*;
 pub use mat::MatVecMul;
+pub use vec::*;
 
 /// An interface for the preconditioner.
 ///
