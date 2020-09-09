@@ -39,8 +39,8 @@ impl<'data, T: Scalar> GaussSeidel<'data, T> {
         eps: T::Real,
     ) -> SolveResult<(usize, T::Real)>
     where
-        for<'d> &'d V: DenseVec<'d, T>,
-        IN: for<'a> DenseVec<'a, T>,
+        for<'d> &'d V: DenseVec<'d, T>, // We need HRTB here because the lt of V is specified in the body of the method
+        IN: for<'a> DenseVec<'a, T>, // We nned HRTB here because the lt of references from rhs.iter() is specified in the body of this method
         OUT: for<'b> DenseVecMut<'b, T> + Deref<Target = V>,
     {
         // check the format
