@@ -1,4 +1,4 @@
-use super::{error::*, MatVecMul};
+use super::{error::*, MatVecMul, DenseVec, DenseVecMut};
 use cauchy::Scalar;
 use num_traits::{float::*, Zero};
 use sprs::CsMatView;
@@ -30,20 +30,17 @@ impl<'data, T: Scalar> GaussSeidel<'data, T> {
         })
     }
 
-    pub fn solve(
-        &mut self,
-        rhs: &[T],
-        x: &mut [T],
-        max_iter: usize,
+    pub fn solve<'b, IN: for<'a> DenseVec<'a, T>, OUT: 'b + DenseVecMut<'b, T>>(
+        &mut self, rhs: IN, mut x: OUT, max_iter: usize,
         eps: T::Real,
     ) -> SolveResult<(usize, T::Real)> {
         // check the format
-        if rhs.len() != self.A.rows() {
+        if rhs.dim() != self.A.rows() {
             return Err(SolverError::IncompatibleMatrixFormat(String::from(
                 "Input vec dimension doesn't match the matrix size",
             )));
         }
-        if rhs.len() != x.len() {
+        if rhs.dim() != x.dim() {
             return Err(SolverError::IncompatibleMatrixFormat(String::from(
                 "Input and output vec dimension do not match",
             )));
@@ -53,7 +50,7 @@ impl<'data, T: Scalar> GaussSeidel<'data, T> {
             return Err(SolverError::InsufficientIterNum(max_iter));
         }
 
-        let n_rows = rhs.len();
+        let n_rows = rhs.dim();
         let mut b_norm: T::Real = Zero::zero();
 
         // unroll the first iteration to compute norm of b and cache the diagonals
