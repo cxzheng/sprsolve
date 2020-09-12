@@ -3,6 +3,9 @@
 use cauchy::Scalar;
 use std::ops::{Deref, DerefMut, Mul};
 
+/// compute $\mathbf{x}\cdot\mathbf{y}$.
+/// 
+/// *NOTE:* No conjugate is taken if the vector is complex-valued.
 pub fn dot<T, IN1, IN2>(vec1: IN1, vec2: IN2) -> T
 where
     T: Scalar,
