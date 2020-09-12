@@ -20,3 +20,6 @@ cauchy = "0.3"
 sprs = { path = "sprs", default-features = false }
 
 rayon = { version = "1.3", optional = true }
+
+[dev-dependencies]
+approx = "0.3"

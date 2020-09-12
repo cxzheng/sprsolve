@@ -14,16 +14,21 @@ fn test_gauss_seidel() {
 
     let mut x = vec![0_f64; rows * cols];
     let mut solver = sprsolve::GaussSeidel::new(lap.view()).unwrap();
-    let (iters, res) = solver.solve(rhs.as_slice(), x.as_mut_slice(), 300, 0.).unwrap();
-    println!("Solved system in {} iterations with residual error {}", iters, res.sqrt());
+    let (iters, res) = solver
+        .solve(rhs.as_slice(), x.as_mut_slice(), 300, 0.)
+        .unwrap();
+    println!(
+        "Solved system in {} iterations with residual error {}",
+        iters,
+        res.sqrt()
+    );
     for i in 0..rows {
         for j in 0..cols {
-            print!("{} ", x[i*rows + j]);
+            print!("{} ", x[i * rows + j]);
         }
         println!("");
     }
 }
-
 
 /// Determine whether the grid location at `(row, col)` is a border
 /// of the grid defined by `shape`.
@@ -77,11 +82,8 @@ fn grid_laplacian(shape: (usize, usize)) -> sprs::CsMat<f64> {
     sprs::CsMat::new((nb_vert, nb_vert), indptr, indices, data)
 }
 
-fn set_boundary_condition<F>(
-    rhs: &mut [f64],
-    grid_shape: (usize, usize),
-    f: F,
-) where
+fn set_boundary_condition<F>(rhs: &mut [f64], grid_shape: (usize, usize), f: F)
+where
     F: Fn(usize, usize) -> f64,
 {
     let (rows, cols) = grid_shape;

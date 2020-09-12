@@ -1,9 +1,9 @@
+//! A naive impl of Gauss-Seidel solver.
 use super::{error::*, MatVecMul};
 use cauchy::Scalar;
 use num_traits::{float::*, Zero};
 use sprs::CsMatView;
 
-/// A naive impl of Gauss-Seidel solver.
 #[allow(non_snake_case)]
 pub struct GaussSeidel<'data, T: Scalar> {
     A: CsMatView<'data, T>,

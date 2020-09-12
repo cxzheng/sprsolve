@@ -3,6 +3,7 @@
 pub mod error;
 mod gauss_seidel;
 mod mat;
+pub mod vecalg;
 
 pub use gauss_seidel::*;
 pub use mat::MatVecMul;
