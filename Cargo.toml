@@ -7,10 +7,9 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["multi_thread"]
-# The `multi_thread` feature of package `awesome` will ensure that 
-# the `multi_thread` feature of the package `sprs` is also enabled.
-multi_thread = ["rayon", "sprs/multi_thread"]
+default = ["mkl"]
+#multi_thread = ["rayon", "sprs/multi_thread"]
+mkl = ["mkl-sys"]
 
 [dependencies]
 thiserror = "1.0"
@@ -19,7 +18,8 @@ num-complex = { version = "0.3" }
 cauchy = "0.3"
 sprs = { path = "sprs", default-features = false }
 
-rayon = { version = "1.3", optional = true }
+mkl-sys = { git = "https://github.com/cxzheng/mkl-sys.git", optional = true }
+#rayon = { version = "1.3", optional = true }
 
 [dev-dependencies]
 approx = "0.3"
