@@ -1,10 +1,12 @@
 //#![feature(min_const_generics)]
 
+mod bicg_stab;
 pub mod error;
 mod gauss_seidel;
 mod mat;
 pub mod vecalg;
 
+pub use bicg_stab::*;
 pub use gauss_seidel::*;
 pub use mat::MatVecMul;
 

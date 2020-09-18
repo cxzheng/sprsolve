@@ -1,16 +1,16 @@
 //! A naive impl of Gauss-Seidel solver.
-use super::{error::*, MatVecMul};
+use super::{error::*, vecalg::*, MatVecMul};
 use cauchy::Scalar;
 use num_traits::{float::*, Zero};
 use sprs::CsMatView;
 
 #[allow(non_snake_case)]
-pub struct GaussSeidel<'data, T: Scalar> {
+pub struct GaussSeidel<'data, T: Scalar + PartialOrd> {
     A: CsMatView<'data, T>,
     workspace: Vec<T>,
 }
 
-impl<'data, T: Scalar> GaussSeidel<'data, T> {
+impl<'data, T: Scalar + PartialOrd> GaussSeidel<'data, T> {
     #[allow(non_snake_case)]
     pub fn new(A: CsMatView<'data, T>) -> SolveResult<Self> {
         if A.rows() != A.cols() {
@@ -84,21 +84,24 @@ impl<'data, T: Scalar> GaussSeidel<'data, T> {
                 *x.get_unchecked_mut(row_ind) = (*rhs_v - sigma) / *diag;
             }
         }
+        let b_norm = num_traits::Float::sqrt(b_norm);
 
         unsafe {
             self.A.mul_vec_unchecked(x, &mut self.workspace[0..n_rows]);
         }
         // r = A*x - b
-        self.workspace
-            .iter_mut()
-            .zip(rhs.iter())
-            .for_each(|(a, b)| *a -= *b);
-        // |r|^2
-        let res = self
-            .workspace
-            .iter()
-            .take(n_rows)
-            .fold(T::Real::zero(), |acc, x| acc + x.square());
+        //self.workspace
+        //    .iter_mut()
+        //    .zip(rhs.iter())
+        //    .for_each(|(a, b)| *a -= *b);
+        axpy(-T::one(), rhs, &mut self.workspace[..n_rows]);
+        // |r|
+        //let res = self
+        //    .workspace
+        //    .iter()
+        //    .take(n_rows)
+        //    .fold(T::Real::zero(), |acc, x| acc + x.square());
+        let res = norm2(&self.workspace[..n_rows]);
 
         if res <= eps * b_norm {
             return Ok((1, res));
@@ -125,16 +128,10 @@ impl<'data, T: Scalar> GaussSeidel<'data, T> {
                 self.A.mul_vec_unchecked(x, &mut self.workspace[0..n_rows]);
             }
             // r = A*x - b
-            self.workspace
-                .iter_mut()
-                .zip(rhs.iter())
-                .for_each(|(a, b)| *a -= *b);
-            // |r|^2
-            let res = self
-                .workspace
-                .iter()
-                .take(n_rows)
-                .fold(T::Real::zero(), |acc, x| acc + x.square());
+            axpy(-T::one(), rhs, &mut self.workspace[..n_rows]);
+
+            // |r|
+            let res = norm2(&self.workspace[..n_rows]);
 
             if res <= eps * b_norm {
                 return Ok((it, res));

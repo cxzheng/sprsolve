@@ -3,8 +3,11 @@
 use cauchy::Scalar;
 #[cfg(feature = "mkl")]
 use mkl_sys::blas::*;
+use num_traits::Zero;
 use std::ops::{Deref, DerefMut, Mul};
 
+#[cfg(feature = "mkl")]
+use std::ffi::c_void;
 /// len of vector before we use blas
 #[cfg(feature = "mkl")]
 const DOT_BLAS_CUTOFF: usize = 32;
@@ -23,6 +26,48 @@ where
     dot_fallback(&vec1[..], &vec2[..])
 }
 
+#[cfg(not(feature = "mkl"))]
+pub fn norm2<T, VEC>(vec: VEC) -> T::Real
+where
+    T: Scalar,
+    VEC: Deref<Target = [T]>,
+{
+    norm2_fallback(&vec[..])
+}
+
+#[cfg(feature = "mkl")]
+pub fn norm2<T, VEC>(vec: VEC) -> T::Real
+where
+    T: Scalar,
+    VEC: Deref<Target = [T]>,
+{
+    let n = vec[..].len();
+    assert!(n < std::os::raw::c_int::max_value() as usize);
+
+    if n > DOT_BLAS_CUTOFF {
+        macro_rules! nrm2 {
+            ($ty:ty, $func:ident, {}) => {
+                if super::same_type::<T, $ty>() {
+                    let v = unsafe { $func(n as i32, vec[..].as_ptr() as *const $ty, 1) };
+                    return super::cast_as::<$ty, T::Real>(&v);
+                }
+            };
+            ($ty:ty, $func:ident, {complex}) => {
+                if super::same_type::<T, num_complex::Complex<$ty>>() {
+                    let v = unsafe { $func(n as i32, vec[..].as_ptr() as *const c_void, 1) };
+                    return super::cast_as::<$ty, T::Real>(&v);
+                }
+            };
+        }
+        nrm2! {f32, cblas_snrm2, {}};
+        nrm2! {f64, cblas_dnrm2, {}};
+        nrm2! {f32, cblas_scnrm2, {complex}};
+        nrm2! {f64, cblas_dznrm2, {complex}};
+    }
+    norm2_fallback(&vec[..])
+}
+
+/// Dot product with CBLAS calls.
 #[cfg(feature = "mkl")]
 pub fn dot<T, IN1, IN2>(vec1: IN1, vec2: IN2) -> T
 where
@@ -31,7 +76,7 @@ where
     IN2: Deref<Target = [T]>,
 {
     let n = vec1[..].len();
-    assert_eq!(n, vec2[..].len());
+    assert!(n == vec2[..].len() && n < std::os::raw::c_int::max_value() as usize);
 
     // Use only if the vector is large enough to be worth it
     if n > DOT_BLAS_CUTOFF {
@@ -40,7 +85,7 @@ where
                 if super::same_type::<T, $ty>() {
                     let v = unsafe {
                         $func(
-                            n as i32,
+                            n as i32, // this is safe because the assert! above
                             vec1[..].as_ptr() as *const $ty,
                             1,
                             vec2[..].as_ptr() as *const $ty,
@@ -52,11 +97,10 @@ where
             };
             ($ty:ty, $func:ident, {complex}) => {
                 if super::same_type::<T, num_complex::Complex<$ty>>() {
-                    use std::ffi::c_void;
                     let mut r: num_complex::Complex<$ty> = Default::default();
                     unsafe {
                         $func(
-                            n as i32,
+                            n as i32, // this is safe because the assert! above
                             vec1[..].as_ptr() as *const c_void,
                             1,
                             vec2[..].as_ptr() as *const c_void,
@@ -77,6 +121,7 @@ where
     dot_fallback(&vec1[..], &vec2[..])
 }
 
+/// The standard `axpy` operation as in BLAS: vec2 = vec2 + a*vec1
 pub fn axpy<S, T, IN, OUT>(a: S, vec1: IN, mut vec2: OUT)
 where
     S: Copy,
@@ -102,11 +147,33 @@ fn axpy_fallback<S: Copy, T: Scalar + Mul<S, Output = T>>(a: S, vec1: &[T], vec2
         .for_each(|(y, x)| *y += *x * a);
 }
 
+#[inline]
+fn norm2_fallback<T: Scalar>(vec: &[T]) -> T::Real {
+    let v = vec.iter().fold(T::Real::zero(), |acc, x| acc + x.square());
+    v.sqrt()
+}
+
 // ---------------------------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn test_norm2() {
+        let a = vec![1.; 25];
+        let b = norm2(&a[..]);
+        approx::assert_abs_diff_eq!(5.0, b);
+
+        let a = vec![1.; 100];
+        let b = norm2(&a[..]);
+        approx::assert_abs_diff_eq!(10.0, b);
+
+        use cauchy::c64;
+        let a = vec![c64::new(1., 1.); 50];
+        let b = norm2(&a[..]);
+        approx::assert_abs_diff_eq!(10.0, b);
+    }
+
     #[test]
     fn test_dot_generic() {
         let a: &[f64] = &[1., 1., 1., 1., 1., 1.];
