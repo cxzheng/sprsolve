@@ -178,7 +178,7 @@ impl<'data, T: Scalar> BiCGStab_Backup<'data, T> {
             axpy(-w, &*v, &mut *y); // y - w*v
             scale(beta, &mut *y); // beta * (y-w*v)
             axpy(T::one(), &*r, &mut *y); // y = r + beta * (y - w*v)
-            // - v = A*y
+                                          // - v = A*y
             unsafe {
                 self.A.mul_vec_unchecked(&*y, &mut *v);
             }

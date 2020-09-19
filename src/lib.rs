@@ -11,9 +11,11 @@ pub use bicg_stab::*;
 pub use gauss_seidel::*;
 pub use mat::MatVecMul;
 
+#[cfg(feature = "mkl")]
 use std::any::TypeId;
 
 /// Return `true` if `A` and `B` are the same type
+#[cfg(feature = "mkl")]
 #[inline(always)]
 fn same_type<A: 'static, B: 'static>() -> bool {
     TypeId::of::<A>() == TypeId::of::<B>()
@@ -22,6 +24,7 @@ fn same_type<A: 'static, B: 'static>() -> bool {
 // Read pointer to type `A` as type `B`.
 //
 // **Panics** if `A` and `B` are not the same type
+#[cfg(feature = "mkl")]
 #[inline(always)]
 fn cast_as<A: 'static + Copy, B: 'static + Copy>(a: &A) -> B {
     debug_assert!(same_type::<A, B>());
