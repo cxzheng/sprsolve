@@ -1,4 +1,5 @@
 //#![feature(min_const_generics)]
+#![feature(core_intrinsics)]
 
 mod bicg_stab;
 pub mod error;
@@ -26,13 +27,3 @@ fn cast_as<A: 'static + Copy, B: 'static + Copy>(a: &A) -> B {
     debug_assert!(same_type::<A, B>());
     unsafe { ::std::ptr::read(a as *const _ as *const B) }
 }
-
-/// An interface for the preconditioner.
-///
-/// A preconditioner $M$ can be viewed as a matrix $\mathbf{M}$ for which the solve for
-/// $\mathbf{M}\mathbf{x} = \mathbf{b}$ is fast.
-pub trait Precond {}
-
-pub fn conj_grad() {}
-
-pub fn precond_conj_grad() {}

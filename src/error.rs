@@ -13,4 +13,7 @@ pub enum SolverError {
 
     #[error("Insufficient interation #: {0}")]
     InsufficientIterNum(usize),
+
+    #[error("Solver break down: its #{0}")]
+    BreakDown(usize),
 }

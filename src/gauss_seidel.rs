@@ -129,7 +129,6 @@ impl<'data, T: Scalar + PartialOrd> GaussSeidel<'data, T> {
             }
             // r = A*x - b
             axpy(-T::one(), rhs, &mut self.workspace[..n_rows]);
-
             // |r|
             let res = norm2(&self.workspace[..n_rows]);
 

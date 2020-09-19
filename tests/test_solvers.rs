@@ -30,6 +30,32 @@ fn test_gauss_seidel() {
     }
 }
 
+#[test]
+fn test_bicg_stab() {
+    let (rows, cols) = (60, 60);
+    let lap = grid_laplacian((rows, cols));
+    let mut rhs = vec![0_f64; rows * cols];
+    set_boundary_condition(rhs.as_mut_slice(), (rows, cols), |row, col| {
+        (row + col) as f64
+    });
+
+    let mut x = vec![0_f64; rows * cols];
+    let mut solver = sprsolve::BiCGStab::new(lap.view()).unwrap();
+    let (iters, res) = solver
+        .solve(rhs.as_slice(), x.as_mut_slice(), 1000, 1E-16)
+        .unwrap();
+    println!(
+        "Solved system in {} iterations with relative residual error {}",
+        iters, res
+    );
+    for i in 0..rows {
+        for j in 0..cols {
+            print!("{} ", x[i * rows + j]);
+        }
+        println!("");
+    }
+}
+
 /// Determine whether the grid location at `(row, col)` is a border
 /// of the grid defined by `shape`.
 fn is_border(row: usize, col: usize, shape: (usize, usize)) -> bool {
