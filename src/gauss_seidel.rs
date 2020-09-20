@@ -5,12 +5,12 @@ use num_traits::{float::*, Zero};
 use sprs::CsMatView;
 
 #[allow(non_snake_case)]
-pub struct GaussSeidel<'data, T: Scalar + PartialOrd> {
+pub struct GaussSeidel<'data, T: Scalar + PartialOrd + Send + Sync> {
     A: CsMatView<'data, T>,
     workspace: Vec<T>,
 }
 
-impl<'data, T: Scalar + PartialOrd> GaussSeidel<'data, T> {
+impl<'data, T: Scalar + PartialOrd + Send + Sync> GaussSeidel<'data, T> {
     #[allow(non_snake_case)]
     pub fn new(A: CsMatView<'data, T>) -> SolveResult<Self> {
         if A.rows() != A.cols() {

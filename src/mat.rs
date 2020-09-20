@@ -1,4 +1,6 @@
 use cauchy::Scalar;
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
 use sprs::{CompressedStorage, CsMat, CsMatView};
 
 /// An interface for the sparse matrix and dense vector multiplication.
@@ -17,7 +19,7 @@ pub trait MatVecMul<T: Scalar> {
 }
 
 // 'a refers to the lt of data in CSMatView
-impl<'a, T: Scalar> MatVecMul<T> for CsMatView<'a, T> {
+impl<'a, T: Scalar + Send + Sync> MatVecMul<T> for CsMatView<'a, T> {
     #[inline]
     fn mul_vec(&self, v_in: &[T], v_out: &mut [T]) {
         if self.cols() != v_in.len() || v_in.len() != v_out.len() {
@@ -31,17 +33,41 @@ impl<'a, T: Scalar> MatVecMul<T> for CsMatView<'a, T> {
     // This is very much identical to `mul_acc_mat_vec_csr` method provided in sprs crate.
     // Here 'vec refers to the lt of data in DenseVec
     unsafe fn mul_vec_unchecked(&self, v_in: &[T], v_out: &mut [T]) {
+        // compiler will turn this into memset if needed
         v_out.iter_mut().for_each(|v| *v = T::zero());
 
         match self.storage() {
             CompressedStorage::CSR => {
-                for (row_ind, vec) in self.outer_iterator().enumerate() {
-                    let t = v_out.get_unchecked_mut(row_ind);
-                    for (col_ind, &value) in vec.iter() {
-                        *t += *v_in.get_unchecked(col_ind) * value;
+                /*
+                if cfg!(target_feature = "avx") {
+                    if super::same_type::<T, f64>() {
+                        // AVX + f64 implmentaion
+                    }
+                }
+                */
+                // back up implementation
+                #[cfg(feature = "parallel")]
+                {
+                    let indptr = self.indptr();
+                    println!("Hello");
+                    indptr.par_windows(2).enumerate().for_each(|(row_id, a)| {
+                        let t = v_out.get_unchecked_mut(row_id);
+                        println!("{} {} {}", t, a.get_unchecked(0), a.get_unchecked(1));
+                    })
+                }
+                #[cfg(not(feature = "parallel"))]
+                {
+                    // most basic backup implementation
+                    for (row_ind, vec) in self.outer_iterator().enumerate() {
+                        let t = v_out.get_unchecked_mut(row_ind);
+                        for (col_ind, &value) in vec.iter() {
+                            *t += *v_in.get_unchecked(col_ind) * value;
+                        }
                     }
                 }
             }
+            // We dont' do any performance optimization for CSC yet.
+            // As we haven't used it that much.
             CompressedStorage::CSC => {
                 // initialize it
                 for (col_ind, vec) in self.outer_iterator().enumerate() {
@@ -52,11 +78,11 @@ impl<'a, T: Scalar> MatVecMul<T> for CsMatView<'a, T> {
                     }
                 }
             }
-        }
-    }
+        } // end match
+    } // end fn
 }
 
-impl<T: Scalar> MatVecMul<T> for CsMat<T> {
+impl<T: Scalar + Send + Sync> MatVecMul<T> for CsMat<T> {
     #[inline]
     fn mul_vec(&self, v_in: &[T], v_out: &mut [T]) {
         self.view().mul_vec(v_in, v_out);

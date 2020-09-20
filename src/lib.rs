@@ -11,11 +11,9 @@ pub use bicg_stab::*;
 pub use gauss_seidel::*;
 pub use mat::MatVecMul;
 
-#[cfg(feature = "mkl")]
 use std::any::TypeId;
 
 /// Return `true` if `A` and `B` are the same type
-#[cfg(feature = "mkl")]
 #[inline(always)]
 fn same_type<A: 'static, B: 'static>() -> bool {
     TypeId::of::<A>() == TypeId::of::<B>()

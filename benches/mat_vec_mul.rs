@@ -1,7 +1,12 @@
+#![feature(test)]
+extern crate test;
 use sprsolve::MatVecMul;
+use test::Bencher;
 
-fn main() {
-    let (rows, cols) = (6, 6);
+#[bench]
+fn mat_vec_mul(b: &mut Bencher) {
+    let res = 80;
+    let (rows, cols) = (res, res);
     let lap = grid_laplacian((rows, cols));
     let mut rhs = vec![0_f64; rows * cols];
     set_boundary_condition(rhs.as_mut_slice(), (rows, cols), |row, col| {
@@ -9,20 +14,11 @@ fn main() {
     });
 
     let mut x = vec![0_f64; rows * cols];
-    unsafe {
+    //let mut solver = sprsolve::BiCGStab::new(lap.view()).unwrap();
+
+    b.iter(|| unsafe {
         lap.mul_vec_unchecked(rhs.as_slice(), x.as_mut_slice());
-    }
-    println!("OK");
-    /*
-    let mut solver = sprsolve::BiCGStab::new(lap.view()).unwrap();
-    let (iters, res) = solver
-        .solve(rhs.as_slice(), x.as_mut_slice(), 1000, 1E-16)
-        .unwrap();
-    println!(
-        "Solved system in {} iterations with relative residual error {}",
-        iters, res
-    );
-    */
+    });
 }
 
 /// Determine whether the grid location at `(row, col)` is a border

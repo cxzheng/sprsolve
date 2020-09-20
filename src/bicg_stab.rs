@@ -10,11 +10,11 @@ use std::{
     slice::from_raw_parts_mut,
 };
 
-pub struct BiCGStab<'data, T: Scalar> {
+pub struct BiCGStab<'data, T: Scalar + Send + Sync> {
     solver: BiCGStab_Backup<'data, T>,
 }
 
-impl<'data, T: Scalar> BiCGStab<'data, T> {
+impl<'data, T: Scalar + Send + Sync> BiCGStab<'data, T> {
     #[allow(non_snake_case)]
     #[inline]
     pub fn new(A: CsMatView<'data, T>) -> SolveResult<Self> {
@@ -38,12 +38,12 @@ impl<'data, T: Scalar> BiCGStab<'data, T> {
 /// The backup implementation of BiCGSTAB algorithm when no BLAS/MKL is
 /// available, focusing on correctness not performance.
 #[allow(non_snake_case, non_camel_case_types)]
-struct BiCGStab_Backup<'data, T: Scalar> {
+struct BiCGStab_Backup<'data, T: Scalar + Send + Sync> {
     A: CsMatView<'data, T>,
     workspace: Vec<T>,
 }
 
-impl<'data, T: Scalar> BiCGStab_Backup<'data, T> {
+impl<'data, T: Scalar + Send + Sync> BiCGStab_Backup<'data, T> {
     #[allow(non_snake_case)]
     pub fn new(A: CsMatView<'data, T>) -> SolveResult<Self> {
         if A.rows() != A.cols() {
@@ -178,8 +178,8 @@ impl<'data, T: Scalar> BiCGStab_Backup<'data, T> {
             axpy(-w, &*v, &mut *y); // y - w*v
             scale(beta, &mut *y); // beta * (y-w*v)
             axpy(T::one(), &*r, &mut *y); // y = r + beta * (y - w*v)
-                                          // - v = A*y
             unsafe {
+                // - v = A*y
                 self.A.mul_vec_unchecked(&*y, &mut *v);
             }
             // alpha = rho / r0.v
@@ -209,8 +209,8 @@ impl<'data, T: Scalar> BiCGStab_Backup<'data, T> {
             // x = x - alpha*y - w*z
             axpy(-alpha, &*y, &mut *x); // x - alpha * y
             axpy(-w, &*s_z, &mut *x); // x - alpha*y - w*z
-                                      // r = s
             unsafe {
+                // r = s
                 copy_nonoverlapping(s_z.as_ptr(), r.as_mut_ptr(), n);
             }
             // r = s - w * t
