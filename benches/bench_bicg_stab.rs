@@ -1,7 +1,19 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 
+#[cfg(feature = "parallel")]
+fn set_threads() {
+    // Consider setting a fixed number of threads here, for example to avoid
+    // oversubscribing on hyperthreaded cores.
+    let n = 4;
+    let _ = rayon::ThreadPoolBuilder::new().num_threads(n).build_global();
+    println!("BENCH with {} threads", n);
+}
+
 fn bench_bicgstab(c: &mut Criterion) {
-    let res = 70;
+    #[cfg(feature = "parallel")]
+    set_threads();
+
+    let res = 100;
     let (rows, cols) = (res, res);
     let lap = grid_laplacian((rows, cols));
     let mut rhs = vec![0_f64; rows * cols];
@@ -16,7 +28,7 @@ fn bench_bicgstab(c: &mut Criterion) {
     c.bench_function(&name, |b| {
         b.iter(|| {
             solver
-                .solve(rhs.as_slice(), x.as_mut_slice(), 1000, 1E-16)
+                .solve(rhs.as_slice(), x.as_mut_slice(), 1500, 1E-16)
                 .unwrap();
         })
     });
