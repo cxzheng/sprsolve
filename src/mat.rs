@@ -8,6 +8,8 @@ use std::slice::from_raw_parts;
 /// An interface for the sparse matrix and dense vector multiplication.
 /// 
 /// # Performance Tuning
+/// 
+/// The _parallel_ feature turns on multi-thread computing in the [`mul_vec_unchecked`] using Rayon
 pub trait MatVecMul<T: Scalar> {
     /// Multiply this matrix with the provided vector `v_in` and put the results
     /// in `v_out`.
@@ -63,9 +65,11 @@ impl<'a, T: Scalar + Send + Sync> MatVecMul<T> for CsMatView<'a, T> {
                             let nn = *row_range.get_unchecked(1) - st;
                             let local_idx = from_raw_parts(index_ptr.0.add(st), nn); // directly construct slice to avoid bound check
                             let local_dat = from_raw_parts(data_ptr.0.add(st), nn);
+                            let mut ret = T::zero();
                             for (lid, ldat) in local_idx.iter().zip(local_dat.iter()) {
-                                *row_ret += *v_in.get_unchecked(*lid) * (*ldat);
+                                ret += *v_in.get_unchecked(*lid) * (*ldat);
                             }
+                            *row_ret = ret;
                         },
                     );
                 }
