@@ -96,6 +96,7 @@ impl<'a, T: Scalar + Send + Sync> MatVecMul<T> for CsMatView<'a, T> {
 }
 
 /// Wrap type to send the pointer across the thread
+#[cfg(feature = "parallel")]
 struct SendPtr<T: Send>(*const T);
 unsafe impl<T: Send> Send for SendPtr<T> {}
 unsafe impl<T: Send> Sync for SendPtr<T> {}
