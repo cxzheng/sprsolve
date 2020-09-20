@@ -14,7 +14,7 @@ parallel = ["rayon"]   # use rayon for parallel computing
 [dependencies]
 thiserror = "1.0"
 num-traits = "0.2"
-num-complex = { version = "0.3" }
+num-complex = "0.3"
 cauchy = "0.3"
 
 sprs = { git = "https://github.com/cxzheng/sprs.git", default-features = false }
