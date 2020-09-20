@@ -2,6 +2,8 @@ use cauchy::Scalar;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 use sprs::{CompressedStorage, CsMat, CsMatView};
+#[cfg(feature = "parallel")]
+use std::slice::from_raw_parts;
 
 /// An interface for the sparse matrix and dense vector multiplication.
 pub trait MatVecMul<T: Scalar> {
@@ -34,6 +36,7 @@ impl<'a, T: Scalar + Send + Sync> MatVecMul<T> for CsMatView<'a, T> {
     // Here 'vec refers to the lt of data in DenseVec
     unsafe fn mul_vec_unchecked(&self, v_in: &[T], v_out: &mut [T]) {
         // compiler will turn this into memset if needed
+        debug_assert!(self.cols() == v_in.len() && v_in.len() == v_out.len());
         v_out.iter_mut().for_each(|v| *v = T::zero());
 
         match self.storage() {
@@ -46,22 +49,30 @@ impl<'a, T: Scalar + Send + Sync> MatVecMul<T> for CsMatView<'a, T> {
                 }
                 */
                 // back up implementation
+                // When `parallel` is enabled, use rayon to parallelize the outer index iteration
                 #[cfg(feature = "parallel")]
                 {
                     let indptr = self.indptr();
-                    println!("Hello");
-                    indptr.par_windows(2).enumerate().for_each(|(row_id, a)| {
-                        let t = v_out.get_unchecked_mut(row_id);
-                        println!("{} {} {}", t, a.get_unchecked(0), a.get_unchecked(1));
-                    })
+                    let index_ptr = SendPtr(self.indices().as_ptr());
+                    let data_ptr = SendPtr(self.data().as_ptr());
+                    indptr.par_windows(2).zip(v_out.par_iter_mut()).for_each(
+                        |(row_range, row_ret)| {
+                            let st = *row_range.get_unchecked(0);
+                            let nn = *row_range.get_unchecked(1) - st;
+                            let local_idx = from_raw_parts(index_ptr.0.add(st), nn); // directly construct slice to avoid bound check
+                            let local_dat = from_raw_parts(data_ptr.0.add(st), nn);
+                            for (lid, ldat) in local_idx.iter().zip(local_dat.iter()) {
+                                *row_ret += *v_in.get_unchecked(*lid) * (*ldat);
+                            }
+                        },
+                    );
                 }
                 #[cfg(not(feature = "parallel"))]
                 {
                     // most basic backup implementation
-                    for (row_ind, vec) in self.outer_iterator().enumerate() {
-                        let t = v_out.get_unchecked_mut(row_ind);
+                    for (vec, ret) in self.outer_iterator().zip(v_out.iter_mut()) {
                         for (col_ind, &value) in vec.iter() {
-                            *t += *v_in.get_unchecked(col_ind) * value;
+                            *ret += *v_in.get_unchecked(col_ind) * value;
                         }
                     }
                 }
@@ -81,6 +92,11 @@ impl<'a, T: Scalar + Send + Sync> MatVecMul<T> for CsMatView<'a, T> {
         } // end match
     } // end fn
 }
+
+/// Wrap type to send the pointer across the thread
+struct SendPtr<T: Send>(*const T);
+unsafe impl<T: Send> Send for SendPtr<T> {}
+unsafe impl<T: Send> Sync for SendPtr<T> {}
 
 impl<T: Scalar + Send + Sync> MatVecMul<T> for CsMat<T> {
     #[inline]
