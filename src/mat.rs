@@ -6,6 +6,8 @@ use sprs::{CompressedStorage, CsMat, CsMatView};
 use std::slice::from_raw_parts;
 
 /// An interface for the sparse matrix and dense vector multiplication.
+/// 
+/// # Performance Tuning
 pub trait MatVecMul<T: Scalar> {
     /// Multiply this matrix with the provided vector `v_in` and put the results
     /// in `v_out`.

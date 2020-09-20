@@ -3,8 +3,24 @@ extern crate test;
 use sprsolve::MatVecMul;
 use test::Bencher;
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
+#[cfg(feature = "parallel")]
+fn set_threads() {
+    // Consider setting a fixed number of threads here, for example to avoid
+    // oversubscribing on hyperthreaded cores.
+    let n = 4;
+    rayon::ThreadPoolBuilder::new().num_threads(n).build_global();
+    println!("BENCH with {} threads", n);
+}
+
 #[bench]
 fn mat_vec_mul(b: &mut Bencher) {
+
+    #[cfg(feature = "parallel")]
+    set_threads();
+
     let res = 80;
     let (rows, cols) = (res, res);
     let lap = grid_laplacian((rows, cols));
