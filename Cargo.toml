@@ -32,3 +32,7 @@ criterion = { version = "0.3.3", features = ['real_blackbox'] }
 [[bench]]
 name = "bench_bicg_stab"
 harness = false
+
+[[bench]]
+name = "mat_vec_mul"
+harness = false

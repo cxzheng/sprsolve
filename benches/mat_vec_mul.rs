@@ -1,22 +1,16 @@
-#![feature(test)]
-extern crate test;
 use sprsolve::MatVecMul;
-use test::Bencher;
-
-#[cfg(feature = "parallel")]
-use rayon::prelude::*;
+use criterion::{criterion_group, criterion_main, Criterion};
 
 #[cfg(feature = "parallel")]
 fn set_threads() {
     // Consider setting a fixed number of threads here, for example to avoid
     // oversubscribing on hyperthreaded cores.
     let n = 4;
-    rayon::ThreadPoolBuilder::new().num_threads(n).build_global();
+    let _ = rayon::ThreadPoolBuilder::new().num_threads(n).build_global();
     println!("BENCH with {} threads", n);
 }
 
-#[bench]
-fn mat_vec_mul(b: &mut Bencher) {
+fn mat_vec_mul(c: &mut Criterion) {
 
     #[cfg(feature = "parallel")]
     set_threads();
@@ -30,12 +24,19 @@ fn mat_vec_mul(b: &mut Bencher) {
     });
 
     let mut x = vec![0_f64; rows * cols];
-    //let mut solver = sprsolve::BiCGStab::new(lap.view()).unwrap();
 
-    b.iter(|| unsafe {
-        lap.mul_vec_unchecked(rhs.as_slice(), x.as_mut_slice());
+    let name = format!("Laplacian-Mul-{}", res);
+    c.bench_function(&name, |b| {
+        b.iter(|| {
+            unsafe{ lap.mul_vec_unchecked(rhs.as_slice(), x.as_mut_slice()); }
+        })
     });
 }
+
+criterion_group!(benches, mat_vec_mul);
+criterion_main!(benches);
+
+// --------------------------------------------------------------------------------
 
 /// Determine whether the grid location at `(row, col)` is a border
 /// of the grid defined by `shape`.
