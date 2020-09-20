@@ -21,7 +21,7 @@ fn mat_vec_mul(b: &mut Bencher) {
     #[cfg(feature = "parallel")]
     set_threads();
 
-    let res = 80;
+    let res = 100;
     let (rows, cols) = (res, res);
     let lap = grid_laplacian((rows, cols));
     let mut rhs = vec![0_f64; rows * cols];
