@@ -5,7 +5,7 @@ use num_complex::{Complex32, Complex64};
 use sprs::CsMatI;
 use std::{os::raw::c_int, result::Result};
 
-const DEFAULT_SPARSE_MV_CALLS: i32 = 1000;
+const DEFAULT_SPARSE_MV_CALLS: i32 = 2000;
 
 const COMPLEX32_ZERO: mkl_sys::MKL_Complex8 = mkl_sys::MKL_Complex8 { real: 0., imag: 0. };
 const COMPLEX32_ONE: mkl_sys::MKL_Complex8 = mkl_sys::MKL_Complex8 { real: 1., imag: 0. };
@@ -60,7 +60,7 @@ impl<T: Scalar> MklMat<T> {
                         return Err(status);
                     }
                     let mret = MklMat { _indptr: indptr, _indices: indices, _data: data, size: nrow, sp_handle };
-                    mret.mv_and_dotmv_hint(DEFAULT_SPARSE_MV_CALLS)?;
+                    mret.mv_hint(DEFAULT_SPARSE_MV_CALLS)?;
                     return Ok(mret);
                 }
             };
@@ -100,6 +100,33 @@ impl<T: Scalar> MklMat<T> {
 
         let status = unsafe {
             sp::mkl_sparse_set_dotmv_hint(
+                self.sp_handle,
+                sp::sparse_operation_t_SPARSE_OPERATION_NON_TRANSPOSE,
+                descr,
+                DEFAULT_SPARSE_MV_CALLS,
+            )
+        };
+        if status != sp::sparse_status_t_SPARSE_STATUS_SUCCESS {
+            return Err(status);
+        }
+
+        let status = unsafe { sp::mkl_sparse_optimize(self.sp_handle) };
+        if status != sp::sparse_status_t_SPARSE_STATUS_SUCCESS {
+            return Err(status);
+        }
+        Ok(())
+    }
+
+    #[inline]
+    pub fn mv_hint(&self, ncalls: i32) -> Result<(), u32> {
+        debug_assert!(ncalls > 0);
+        let descr = sp::matrix_descr {
+            type_: sp::sparse_matrix_type_t_SPARSE_MATRIX_TYPE_GENERAL,
+            mode: sp::sparse_fill_mode_t_SPARSE_FILL_MODE_FULL,
+            diag: sp::sparse_diag_type_t_SPARSE_DIAG_NON_UNIT,
+        };
+        let status = unsafe {
+            sp::mkl_sparse_set_mv_hint(
                 self.sp_handle,
                 sp::sparse_operation_t_SPARSE_OPERATION_NON_TRANSPOSE,
                 descr,
