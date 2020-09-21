@@ -1,4 +1,5 @@
 use sprsolve::MatVecMul;
+//use sprsolve::MklMat;
 
 fn main() {
     let (rows, cols) = (6, 6);
@@ -12,7 +13,7 @@ fn main() {
     unsafe {
         lap.mul_vec_unchecked(rhs.as_slice(), x.as_mut_slice());
     }
-    println!("OK");
+    println!("{:?}", x);
     /*
     let mut solver = sprsolve::BiCGStab::new(lap.view()).unwrap();
     let (iters, res) = solver
@@ -40,12 +41,12 @@ fn is_border(row: usize, col: usize, shape: (usize, usize)) -> bool {
     border_row || border_col
 }
 
-fn grid_laplacian(shape: (usize, usize)) -> sprs::CsMat<f64> {
+fn grid_laplacian(shape: (usize, usize)) -> sprs::CsMatI<f64, i32> {
     let (rows, cols) = shape;
     let nb_vert = rows * cols;
-    let mut indptr = Vec::with_capacity(nb_vert + 1);
+    let mut indptr: Vec<i32> = Vec::with_capacity(nb_vert + 1);
     let nnz = 5 * nb_vert + 5;
-    let mut indices = Vec::with_capacity(nnz);
+    let mut indices: Vec<i32> = Vec::with_capacity(nnz);
     let mut data = Vec::with_capacity(nnz);
     let mut cumsum = 0;
 
@@ -54,7 +55,7 @@ fn grid_laplacian(shape: (usize, usize)) -> sprs::CsMat<f64> {
             indptr.push(cumsum);
 
             let mut add_elt = |i, j, x| {
-                indices.push(i * rows + j);
+                indices.push((i * rows + j) as i32);
                 data.push(x);
                 cumsum += 1;
             };
@@ -74,7 +75,7 @@ fn grid_laplacian(shape: (usize, usize)) -> sprs::CsMat<f64> {
 
     indptr.push(cumsum);
 
-    sprs::CsMat::new((nb_vert, nb_vert), indptr, indices, data)
+    sprs::CsMatI::new((nb_vert, nb_vert), indptr, indices, data)
 }
 
 fn set_boundary_condition<F>(rhs: &mut [f64], grid_shape: (usize, usize), f: F)

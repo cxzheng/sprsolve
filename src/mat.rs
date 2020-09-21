@@ -1,7 +1,8 @@
 use cauchy::Scalar;
+use num::ToPrimitive;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
-use sprs::{CompressedStorage, CsMat, CsMatView};
+use sprs::{CompressedStorage, CsMatI, CsMatViewI, SpIndex};
 use std::slice::from_raw_parts;
 
 /// An interface for the sparse matrix and dense vector multiplication.
@@ -24,7 +25,7 @@ pub trait MatVecMul<T: Scalar> {
 }
 
 // 'a refers to the lt of data in CSMatView
-impl<'a, T: Scalar + Send + Sync> MatVecMul<T> for CsMatView<'a, T> {
+impl<'a, T: Scalar + Send + Sync, I: SpIndex + ToPrimitive> MatVecMul<T> for CsMatViewI<'a, T, I> {
     #[inline]
     fn mul_vec(&self, v_in: &[T], v_out: &mut [T]) {
         if self.cols() != v_in.len() || v_in.len() != v_out.len() {
@@ -60,16 +61,16 @@ impl<'a, T: Scalar + Send + Sync> MatVecMul<T> for CsMatView<'a, T> {
                     let data_ptr = SendPtr(self.data().as_ptr());
                     indptr.par_windows(2).zip(v_out.par_iter_mut()).for_each(
                         |(row_range, row_ret)| {
-                            let st = *row_range.get_unchecked(0);
-                            let nn = *row_range.get_unchecked(1) - st;
+                            let st = row_range.get_unchecked(0).to_usize().unwrap();
+                            let nn = row_range.get_unchecked(1).to_usize().unwrap() - st;
                             let local_idx = from_raw_parts(index_ptr.0.add(st), nn); // directly construct slice to avoid bound check
                             let local_dat = from_raw_parts(data_ptr.0.add(st), nn);
-                            *row_ret = local_idx
-                                .iter()
-                                .zip(local_dat.iter())
-                                .fold(T::zero(), |acc, (&lid, &ldat)| {
-                                    acc + *v_in.get_unchecked(lid) * ldat
-                                });
+                            *row_ret = local_idx.iter().zip(local_dat.iter()).fold(
+                                T::zero(),
+                                |acc, (&lid, &ldat)| {
+                                    acc + *v_in.get_unchecked(lid.to_usize().unwrap()) * ldat
+                                },
+                            );
                         },
                     );
                 }
@@ -83,16 +84,16 @@ impl<'a, T: Scalar + Send + Sync> MatVecMul<T> for CsMatView<'a, T> {
                         .windows(2)
                         .zip(v_out.iter_mut())
                         .for_each(|(row_range, row_ret)| {
-                            let st = *row_range.get_unchecked(0);
-                            let nn = *row_range.get_unchecked(1) - st;
+                            let st = row_range.get_unchecked(0).to_usize().unwrap();
+                            let nn = row_range.get_unchecked(1).to_usize().unwrap() - st;
                             let local_idx = from_raw_parts(index_ptr.add(st), nn); // directly construct slice to avoid bound check
                             let local_dat = from_raw_parts(data_ptr.add(st), nn);
-                            *row_ret = local_idx
-                                .iter()
-                                .zip(local_dat.iter())
-                                .fold(T::zero(), |acc, (&lid, &ldat)| {
-                                    acc + *v_in.get_unchecked(lid) * ldat
-                                });
+                            *row_ret = local_idx.iter().zip(local_dat.iter()).fold(
+                                T::zero(),
+                                |acc, (&lid, &ldat)| {
+                                    acc + *v_in.get_unchecked(lid.to_usize().unwrap()) * ldat
+                                },
+                            );
                         });
                 }
             }
@@ -120,7 +121,7 @@ unsafe impl<T: Send> Send for SendPtr<T> {}
 #[cfg(feature = "parallel")]
 unsafe impl<T: Send> Sync for SendPtr<T> {}
 
-impl<T: Scalar + Send + Sync> MatVecMul<T> for CsMat<T> {
+impl<T: Scalar + Send + Sync, I: SpIndex + 'static> MatVecMul<T> for CsMatI<T, I> {
     #[inline]
     fn mul_vec(&self, v_in: &[T], v_out: &mut [T]) {
         self.view().mul_vec(v_in, v_out);
@@ -135,6 +136,7 @@ impl<T: Scalar + Send + Sync> MatVecMul<T> for CsMat<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sprs::CsMatView;
     #[test]
     fn dense_csc_mat() {
         let indptr: &[usize] = &[0, 2, 4, 5, 6, 7];
@@ -169,6 +171,31 @@ mod tests {
 
         let mat =
             CsMatView::new_view(CompressedStorage::CSR, (5, 5), indptr, indices, data).unwrap();
+        let slice = vec![0.1, 0.2, -0.1, 0.3, 0.9];
+        let mut res_vec = vec![0., 0., 0., 0., 0.];
+        unsafe {
+            mat.mul_vec_unchecked(&slice, &mut res_vec);
+        }
+
+        let expected_output = vec![0.22527496, 0., 0.17814121, 0.35319787, 0.51482166];
+
+        let epsilon = 1e-8;
+
+        assert!(res_vec
+            .iter()
+            .zip(expected_output.iter())
+            .all(|(x, y)| (*x - *y).abs() < epsilon));
+    }
+
+    #[test]
+    fn dense_csr_mat_2() {
+        let indptr: Vec<i32> = vec![0, 3, 3, 5, 6, 7];
+        let indices: Vec<i32> = vec![1, 2, 3, 2, 3, 4, 4];
+        let data = vec![
+            0.75672424, 0.1649078, 0.30140296, 0.10358244, 0.6283315, 0.39244208, 0.57202407,
+        ];
+
+        let mat = CsMatI::new((5, 5), indptr, indices, data);
         let slice = vec![0.1, 0.2, -0.1, 0.3, 0.9];
         let mut res_vec = vec![0., 0., 0., 0., 0.];
         unsafe {

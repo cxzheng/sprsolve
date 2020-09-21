@@ -32,5 +32,5 @@ fn same_type<A: 'static, B: 'static>() -> bool {
 #[inline(always)]
 fn cast_as<A: 'static + Copy, B: 'static + Copy>(a: &A) -> B {
     debug_assert!(same_type::<A, B>());
-    unsafe { ::std::ptr::read(a as *const _ as *const B) }
+    unsafe { std::ptr::read(a as *const _ as *const B) }
 }
