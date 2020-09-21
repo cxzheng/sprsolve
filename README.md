@@ -13,3 +13,8 @@ When using rayon (by enabling _parallel_ feature), test the number of threads en
 ```
     cargo bench --bench bench_bicg_stab
 ```
+
+When MKL with iomp is enabled, you might want to use
+```
+RUSTFLAGS="-L /opt/intel/lib/intel64" cargo bench --bench mkl_bicgstab
+```
