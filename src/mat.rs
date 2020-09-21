@@ -65,11 +65,9 @@ impl<'a, T: Scalar + Send + Sync> MatVecMul<T> for CsMatView<'a, T> {
                             let nn = *row_range.get_unchecked(1) - st;
                             let local_idx = from_raw_parts(index_ptr.0.add(st), nn); // directly construct slice to avoid bound check
                             let local_dat = from_raw_parts(data_ptr.0.add(st), nn);
-                            let mut ret = T::zero();
-                            for (lid, ldat) in local_idx.iter().zip(local_dat.iter()) {
-                                ret += *v_in.get_unchecked(*lid) * (*ldat);
-                            }
-                            *row_ret = ret;
+                            *row_ret = local_idx.iter().zip(local_dat.iter()).fold(
+                                T::zero(), |acc, (&lid, &ldat)| acc + *v_in.get_unchecked(lid) * ldat
+                            );
                         },
                     );
                 }
