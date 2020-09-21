@@ -5,7 +5,7 @@ use sprsolve::MatVecMul;
 fn set_threads() {
     // Consider setting a fixed number of threads here, for example to avoid
     // oversubscribing on hyperthreaded cores.
-    let n = 3;
+    let n = 4;
     let _ = rayon::ThreadPoolBuilder::new()
         .num_threads(n)
         .build_global();
