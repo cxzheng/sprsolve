@@ -21,7 +21,11 @@ pub struct BiCGStab<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> {
 impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
     #[allow(non_snake_case)]
     pub fn new(A: &'data M, size: usize) -> Self {
-        BiCGStab { A, workspace: vec![T::zero(); size * 6], size }
+        BiCGStab {
+            A,
+            workspace: vec![T::zero(); size * 6],
+            size,
+        }
     }
 
     /// Solves Ax = b, without preconditioner

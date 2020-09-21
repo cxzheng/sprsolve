@@ -17,11 +17,24 @@ pub trait MatVecMul<T: Scalar> {
     /// This method will check the dimension agreement and panick if the dimensions don't match.
     fn mul_vec(&self, v_in: &[T], v_out: &mut [T]);
 
+    /// This is similar to `mkl_sparse_?_dotmv` method provided by MKL. It computes
+    /// v_out = A*v_in
+    /// and returns conj(v_in).dot(v_out)
+    fn mul_vec_dot(&self, v_in: &[T], v_out: &mut [T]) -> T;
+
     /// # Safety
     ///
     /// This method will not check the dimension agreement. If the dimensions don't match,
     /// they will result in *[undefined behavior](https://doc.rust-lang.org/reference/behavior-considered-undefined.html)*.
     unsafe fn mul_vec_unchecked(&self, v_in: &[T], v_out: &mut [T]);
+
+    /// The unchecked version of [`mul_vec_dot`]
+    ///
+    /// # Safety
+    ///
+    /// This method will not check the dimension agreement. If the dimensions don't match,
+    /// they will result in *[undefined behavior](https://doc.rust-lang.org/reference/behavior-considered-undefined.html)*.
+    unsafe fn mul_vec_dot_unchecked(&self, v_in: &[T], v_out: &mut [T]) -> T;
 }
 
 // 'a refers to the lt of data in CSMatView
@@ -34,6 +47,14 @@ impl<'a, T: Scalar + Send + Sync, I: SpIndex + ToPrimitive> MatVecMul<T> for CsM
         unsafe {
             self.mul_vec_unchecked(v_in, v_out);
         }
+    }
+
+    #[inline]
+    fn mul_vec_dot(&self, v_in: &[T], v_out: &mut [T]) -> T {
+        if self.cols() != v_in.len() || v_in.len() != v_out.len() {
+            panic!("Dimension mismatch");
+        }
+        unsafe { self.mul_vec_dot_unchecked(v_in, v_out) }
     }
 
     // This is very much identical to `mul_acc_mat_vec_csr` method provided in sprs crate.
@@ -111,6 +132,13 @@ impl<'a, T: Scalar + Send + Sync, I: SpIndex + ToPrimitive> MatVecMul<T> for CsM
             }
         } // end match
     } // end fn
+
+    unsafe fn mul_vec_dot_unchecked(&self, v_in: &[T], v_out: &mut [T]) -> T {
+        use super::vecalg::conj_dot;
+
+        self.mul_vec_unchecked(v_in, v_out);
+        conj_dot(v_in, v_out)
+    }
 }
 
 /// Wrap type to send the pointer across the thread
@@ -130,6 +158,16 @@ impl<T: Scalar + Send + Sync, I: SpIndex + 'static> MatVecMul<T> for CsMatI<T, I
     #[inline]
     unsafe fn mul_vec_unchecked(&self, v_in: &[T], v_out: &mut [T]) {
         self.view().mul_vec_unchecked(v_in, v_out);
+    }
+
+    #[inline]
+    fn mul_vec_dot(&self, v_in: &[T], v_out: &mut [T]) -> T {
+        self.view().mul_vec_dot(v_in, v_out)
+    }
+
+    #[inline]
+    unsafe fn mul_vec_dot_unchecked(&self, v_in: &[T], v_out: &mut [T]) -> T {
+        self.view().mul_vec_dot_unchecked(v_in, v_out)
     }
 }
 

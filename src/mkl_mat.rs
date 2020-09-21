@@ -119,6 +119,7 @@ impl<T: Scalar> MklMat<T> {
 }
 
 impl<T: Scalar> MatVecMul<T> for MklMat<T> {
+    #[inline]
     fn mul_vec(&self, v_in: &[T], v_out: &mut [T]) {
         if self.size != v_in.len() || self.size != v_out.len() {
             panic!("Dimension mismatch");
@@ -128,47 +129,44 @@ impl<T: Scalar> MatVecMul<T> for MklMat<T> {
         }
     }
 
+    #[inline]
+    fn mul_vec_dot(&self, v_in: &[T], v_out: &mut [T]) -> T {
+        if self.size != v_in.len() || self.size != v_out.len() {
+            panic!("Dimension mismatch");
+        }
+        unsafe { self.mul_vec_dot_unchecked(v_in, v_out) }
+    }
+
     unsafe fn mul_vec_unchecked(&self, v_in: &[T], v_out: &mut [T]) {
         let descr = sp::matrix_descr {
             type_: sp::sparse_matrix_type_t_SPARSE_MATRIX_TYPE_GENERAL,
             mode: sp::sparse_fill_mode_t_SPARSE_FILL_MODE_FULL,
             diag: sp::sparse_diag_type_t_SPARSE_DIAG_NON_UNIT,
         };
-        if super::same_type::<T, f32>() {
-            let status = sp::mkl_sparse_s_mv(
-                sp::sparse_operation_t_SPARSE_OPERATION_NON_TRANSPOSE,
-                1_f32,
-                self.sp_handle,
-                descr,
-                v_in.as_ptr() as *const f32,
-                0_f32,
-                v_out.as_mut_ptr() as *mut f32,
-            );
-            if status != sp::sparse_status_t_SPARSE_STATUS_SUCCESS {
-                panic!(format!(
-                    "Cannot destroy MKL sparse matrix. Code = {}",
-                    status
-                ));
-            }
+        macro_rules! sparse_mv {
+            ($ty:ty, $func:ident) => {
+                if super::same_type::<T, $ty>() {
+                    let status = sp::$func(
+                        sp::sparse_operation_t_SPARSE_OPERATION_NON_TRANSPOSE,
+                        1.,
+                        self.sp_handle,
+                        descr,
+                        v_in.as_ptr() as *const $ty,
+                        0.,
+                        v_out.as_mut_ptr() as *mut $ty,
+                    );
+                    if status != sp::sparse_status_t_SPARSE_STATUS_SUCCESS {
+                        panic!(format!(
+                            "Cannot destroy MKL sparse matrix. Code = {}",
+                            status
+                        ));
+                    }
+                    return;
+                }
+            };
         }
-
-        if super::same_type::<T, f64>() {
-            let status = sp::mkl_sparse_d_mv(
-                sp::sparse_operation_t_SPARSE_OPERATION_NON_TRANSPOSE,
-                1_f64,
-                self.sp_handle,
-                descr,
-                v_in.as_ptr() as *const f64,
-                0_f64,
-                v_out.as_mut_ptr() as *mut f64,
-            );
-            if status != sp::sparse_status_t_SPARSE_STATUS_SUCCESS {
-                panic!(format!(
-                    "Cannot destroy MKL sparse matrix. Code = {}",
-                    status
-                ));
-            }
-        }
+        sparse_mv! {f32, mkl_sparse_s_mv};
+        sparse_mv! {f64, mkl_sparse_d_mv};
 
         if super::same_type::<T, Complex32>() {
             let status = sp::mkl_sparse_c_mv(
@@ -186,6 +184,7 @@ impl<T: Scalar> MatVecMul<T> for MklMat<T> {
                     status
                 ));
             }
+            return;
         }
 
         if super::same_type::<T, Complex64>() {
@@ -204,7 +203,89 @@ impl<T: Scalar> MatVecMul<T> for MklMat<T> {
                     status
                 ));
             }
+            return;
         }
+        unreachable!();
+    }
+
+    #[inline]
+    unsafe fn mul_vec_dot_unchecked(&self, v_in: &[T], v_out: &mut [T]) -> T {
+        let descr = sp::matrix_descr {
+            type_: sp::sparse_matrix_type_t_SPARSE_MATRIX_TYPE_GENERAL,
+            mode: sp::sparse_fill_mode_t_SPARSE_FILL_MODE_FULL,
+            diag: sp::sparse_diag_type_t_SPARSE_DIAG_NON_UNIT,
+        };
+
+        macro_rules! sparse_dotmv {
+            ($ty:ty, $func:ident) => {
+                if super::same_type::<T, $ty>() {
+                    let mut d: $ty = 0.;
+                    let status = sp::$func(
+                        sp::sparse_operation_t_SPARSE_OPERATION_NON_TRANSPOSE,
+                        1.,
+                        self.sp_handle,
+                        descr,
+                        v_in.as_ptr() as *const $ty,
+                        0.,
+                        v_out.as_mut_ptr() as *mut $ty,
+                        &mut d as *mut $ty,
+                    );
+                    if status != sp::sparse_status_t_SPARSE_STATUS_SUCCESS {
+                        panic!(format!(
+                            "Cannot destroy MKL sparse matrix. Code = {}",
+                            status
+                        ));
+                    }
+                    return super::cast_as(&d);
+                }
+            };
+        }
+        sparse_dotmv! {f32, mkl_sparse_s_dotmv};
+        sparse_dotmv! {f64, mkl_sparse_d_dotmv};
+
+        if super::same_type::<T, Complex32>() {
+            let mut d = T::zero();
+            let status = sp::mkl_sparse_c_dotmv(
+                sp::sparse_operation_t_SPARSE_OPERATION_NON_TRANSPOSE,
+                COMPLEX32_ONE,
+                self.sp_handle,
+                descr,
+                v_in.as_ptr() as *const Complex32 as *const mkl_sys::MKL_Complex8,
+                COMPLEX32_ZERO,
+                v_out.as_mut_ptr() as *mut Complex32 as *mut mkl_sys::MKL_Complex8,
+                &mut d as *mut T as *mut mkl_sys::MKL_Complex8,
+            );
+            if status != sp::sparse_status_t_SPARSE_STATUS_SUCCESS {
+                panic!(format!(
+                    "Cannot destroy MKL sparse matrix. Code = {}",
+                    status
+                ));
+            }
+            return super::cast_as(&d);
+        }
+
+        if super::same_type::<T, Complex64>() {
+            let mut d = T::zero();
+            let status = sp::mkl_sparse_z_dotmv(
+                sp::sparse_operation_t_SPARSE_OPERATION_NON_TRANSPOSE,
+                COMPLEX64_ONE,
+                self.sp_handle,
+                descr,
+                v_in.as_ptr() as *const Complex64 as *const mkl_sys::MKL_Complex16,
+                COMPLEX64_ZERO,
+                v_out.as_mut_ptr() as *mut Complex64 as *mut mkl_sys::MKL_Complex16,
+                &mut d as *mut T as *mut mkl_sys::MKL_Complex16,
+            );
+            if status != sp::sparse_status_t_SPARSE_STATUS_SUCCESS {
+                panic!(format!(
+                    "Cannot destroy MKL sparse matrix. Code = {}",
+                    status
+                ));
+            }
+            return super::cast_as(&d);
+        }
+
+        unreachable!();
     }
 }
 
@@ -221,9 +302,11 @@ impl<T: Scalar> Drop for MklMat<T> {
     }
 }
 
+// -----------------------------------------------------------------------------------
 #[cfg(test)]
 mod tests {
     use super::*;
+    use num_complex::Complex64;
     use sprs::CsMatI;
     #[test]
     fn mkl_mat_vec() {
@@ -252,6 +335,46 @@ mod tests {
     }
 
     #[test]
+    fn mkl_mat_vec_complex() {
+        let indptr: Vec<i32> = vec![0, 3, 3, 5, 6, 7];
+        let indices: Vec<i32> = vec![1, 2, 3, 2, 3, 4, 4];
+        let data = vec![
+            Complex64::new(0.75672424, 0.75672424),
+            Complex64::new(0.1649078, 0.1649078),
+            Complex64::new(0.30140296, 0.30140296),
+            Complex64::new(0.10358244, 0.10358244),
+            Complex64::new(0.6283315, 0.6283315),
+            Complex64::new(0.39244208, 0.39244208),
+            Complex64::new(0.57202407, 0.57202407),
+        ];
+
+        let mat = CsMatI::new((5, 5), indptr, indices, data);
+        mat.check_compressed_structure().unwrap();
+        let mkl_mat = MklMat::new(mat).unwrap();
+
+        let vector = vec![
+            Complex64::new(0.1, 0.),
+            Complex64::new(0.2, 0.),
+            Complex64::new(-0.1, 0.),
+            Complex64::new(0.3, 0.),
+            Complex64::new(0.9, 0.),
+        ];
+        let mut res_vec: Vec<Complex64> = vec![Default::default(); 5];
+        mkl_mat.mul_vec(&vector, &mut res_vec);
+
+        let expected_output = vec![0.22527496, 0., 0.17814121, 0.35319787, 0.51482166];
+
+        //println!("{:?}", res_vec);
+        //println!("{:?}", expected_output);
+        let epsilon = 1e-8;
+
+        assert!(res_vec
+            .iter()
+            .zip(expected_output.iter())
+            .all(|(x, y)| (x.re - *y).abs() < epsilon && (x.im - *y).abs() < epsilon));
+    }
+
+    #[test]
     fn mkl_mat_vec_2() {
         let indptr: Vec<i32> = vec![0, 3, 5, 8, 11, 13];
         let indices: Vec<i32> = vec![0, 1, 3, 0, 1, 2, 3, 4, 0, 2, 3, 1, 4];
@@ -274,5 +397,38 @@ mod tests {
             .iter()
             .zip(expected.iter())
             .all(|(x, y)| (*x - *y).abs() < epsilon));
+    }
+
+    #[test]
+    fn mkl_mat_vec_dot_complex() {
+        let indptr: Vec<i32> = vec![0, 3, 3, 5, 6, 7];
+        let indices: Vec<i32> = vec![1, 2, 3, 2, 3, 4, 4];
+        let data = vec![
+            Complex64::new(0.75672424, 0.75672424),
+            Complex64::new(0.1649078, 0.1649078),
+            Complex64::new(0.30140296, 0.30140296),
+            Complex64::new(0.10358244, 0.10358244),
+            Complex64::new(0.6283315, 0.6283315),
+            Complex64::new(0.39244208, 0.39244208),
+            Complex64::new(0.57202407, 0.57202407),
+        ];
+
+        let mat = CsMatI::new((5, 5), indptr, indices, data);
+        mat.check_compressed_structure().unwrap();
+        let mkl_mat = MklMat::new(mat).unwrap();
+
+        let vector = vec![
+            Complex64::new(0.1, 0.),
+            Complex64::new(0.2, 0.),
+            Complex64::new(-0.1, 0.),
+            Complex64::new(0.3, 0.),
+            Complex64::new(0.9, 0.),
+        ];
+        let mut res_vec: Vec<Complex64> = vec![Default::default(); 5];
+        let ret = mkl_mat.mul_vec_dot(&vector, &mut res_vec);
+        let exp = super::super::vecalg::conj_dot(vector.as_slice(), res_vec.as_slice());
+
+        approx::assert_abs_diff_eq!(exp.re, ret.re);
+        approx::assert_abs_diff_eq!(exp.im, ret.im);
     }
 }

@@ -1,10 +1,9 @@
+use criterion::{criterion_group, criterion_main, Criterion};
 #[cfg(feature = "mkl")]
 use sprsolve::MklMat;
-use criterion::{criterion_group, criterion_main, Criterion};
 
 #[cfg(not(feature = "mkl"))]
-fn bench_mkl_bicgstab(_c: &mut Criterion) {
-}
+fn bench_mkl_bicgstab(_c: &mut Criterion) {}
 
 #[cfg(feature = "mkl")]
 fn bench_mkl_bicgstab(c: &mut Criterion) {
