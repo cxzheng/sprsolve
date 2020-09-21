@@ -2,7 +2,6 @@ use cauchy::Scalar;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 use sprs::{CompressedStorage, CsMat, CsMatView};
-#[cfg(feature = "parallel")]
 use std::slice::from_raw_parts;
 
 /// An interface for the sparse matrix and dense vector multiplication.
@@ -77,11 +76,24 @@ impl<'a, T: Scalar + Send + Sync> MatVecMul<T> for CsMatView<'a, T> {
                 #[cfg(not(feature = "parallel"))]
                 {
                     // most basic backup implementation
-                    for (vec, ret) in self.outer_iterator().zip(v_out.iter_mut()) {
-                        for (col_ind, &value) in vec.iter() {
-                            *ret += *v_in.get_unchecked(col_ind) * value;
-                        }
-                    }
+                    let indptr = self.indptr();
+                    let index_ptr = self.indices().as_ptr();
+                    let data_ptr = self.data().as_ptr();
+                    indptr
+                        .windows(2)
+                        .zip(v_out.iter_mut())
+                        .for_each(|(row_range, row_ret)| {
+                            let st = *row_range.get_unchecked(0);
+                            let nn = *row_range.get_unchecked(1) - st;
+                            let local_idx = from_raw_parts(index_ptr.add(st), nn); // directly construct slice to avoid bound check
+                            let local_dat = from_raw_parts(data_ptr.add(st), nn);
+                            *row_ret = local_idx
+                                .iter()
+                                .zip(local_dat.iter())
+                                .fold(T::zero(), |acc, (&lid, &ldat)| {
+                                    acc + *v_in.get_unchecked(lid) * ldat
+                                });
+                        });
                 }
             }
             // We dont' do any performance optimization for CSC yet.
