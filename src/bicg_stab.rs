@@ -10,40 +10,15 @@ use std::{
     slice::from_raw_parts_mut,
 };
 
-pub struct BiCGStab<'data, T: Scalar + Send + Sync> {
-    solver: BiCGStab_Backup<'data, T>,
-}
-
-impl<'data, T: Scalar + Send + Sync> BiCGStab<'data, T> {
-    #[allow(non_snake_case)]
-    #[inline]
-    pub fn new(A: CsMatView<'data, T>) -> SolveResult<Self> {
-        Ok(BiCGStab {
-            solver: BiCGStab_Backup::new(A)?,
-        })
-    }
-
-    #[inline]
-    pub fn solve(
-        &mut self,
-        rhs: &[T],
-        x: &mut [T],
-        max_iter: usize,
-        tol: T::Real,
-    ) -> SolveResult<(usize, T::Real)> {
-        self.solver.solve(rhs, x, max_iter, tol)
-    }
-}
-
 /// The backup implementation of BiCGSTAB algorithm when no BLAS/MKL is
 /// available, focusing on correctness not performance.
 #[allow(non_snake_case, non_camel_case_types)]
-struct BiCGStab_Backup<'data, T: Scalar + Send + Sync> {
+pub struct BiCGStab<'data, T: Scalar + Send + Sync> {
     A: CsMatView<'data, T>,
     workspace: Vec<T>,
 }
 
-impl<'data, T: Scalar + Send + Sync> BiCGStab_Backup<'data, T> {
+impl<'data, T: Scalar + Send + Sync> BiCGStab<'data, T> {
     #[allow(non_snake_case)]
     pub fn new(A: CsMatView<'data, T>) -> SolveResult<Self> {
         if A.rows() != A.cols() {
@@ -57,7 +32,7 @@ impl<'data, T: Scalar + Send + Sync> BiCGStab_Backup<'data, T> {
                 "Not in CSR format",
             )));
         }
-        Ok(BiCGStab_Backup {
+        Ok(BiCGStab {
             A,
             workspace: vec![T::zero(); A.rows() * 6],
         })

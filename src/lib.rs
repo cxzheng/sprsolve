@@ -5,11 +5,15 @@ mod bicg_stab;
 pub mod error;
 mod gauss_seidel;
 mod mat;
+#[cfg(feature = "mkl")]
+mod mkl_mat;
 pub mod vecalg;
 
 pub use bicg_stab::*;
 pub use gauss_seidel::*;
 pub use mat::MatVecMul;
+#[cfg(feature = "mkl")]
+pub use mkl_mat::*;
 
 #[cfg(feature = "mkl")]
 use std::any::TypeId;
