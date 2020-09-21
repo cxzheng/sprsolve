@@ -32,7 +32,7 @@ fn test_gauss_seidel() {
 
 #[test]
 fn test_bicg_stab() {
-    let (rows, cols) = (100, 100);
+    let (rows, cols) = (20, 20);
     let lap = grid_laplacian((rows, cols));
     let mut rhs = vec![0_f64; rows * cols];
     set_boundary_condition(rhs.as_mut_slice(), (rows, cols), |row, col| {
@@ -40,7 +40,7 @@ fn test_bicg_stab() {
     });
 
     let mut x = vec![0_f64; rows * cols];
-    let mut solver = sprsolve::BiCGStab::new(lap.view()).unwrap();
+    let mut solver = sprsolve::BiCGStab::new(&lap, lap.cols());
     let (iters, res) = solver
         .solve(rhs.as_slice(), x.as_mut_slice(), 1500, 1E-17)
         .unwrap();

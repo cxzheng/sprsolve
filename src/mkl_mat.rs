@@ -22,6 +22,12 @@ pub struct MklMat<T: Scalar> {
 }
 
 impl<T: Scalar> MklMat<T> {
+    /// Return the matrix size.
+    #[inline(always)]
+    pub fn size(&self) -> usize {
+        self.size
+    }
+
     /// Create a general MKL Sparse Matrix from the privided [`CsMat`].
     pub fn new(m: CsMatI<T, i32>) -> Result<MklMat<T>, u32> {
         assert!(m.is_csr());
@@ -54,7 +60,7 @@ impl<T: Scalar> MklMat<T> {
                         return Err(status);
                     }
                     let mret = MklMat { _indptr: indptr, _indices: indices, _data: data, size: nrow, sp_handle };
-                    mret.set_mv_and_dotmv_hint(DEFAULT_SPARSE_MV_CALLS)?;
+                    mret.mv_and_dotmv_hint(DEFAULT_SPARSE_MV_CALLS)?;
                     return Ok(mret);
                 }
             };
@@ -73,7 +79,7 @@ impl<T: Scalar> MklMat<T> {
     /// because oftentimes both `mv` and `dotmv` are used in an iterative linear solver.
     /// e.g., See [`BiCGStab`]
     #[inline]
-    pub fn set_mv_and_dotmv_hint(&self, ncalls: i32) -> Result<(), u32> {
+    pub fn mv_and_dotmv_hint(&self, ncalls: i32) -> Result<(), u32> {
         debug_assert!(ncalls > 0);
         let descr = sp::matrix_descr {
             type_: sp::sparse_matrix_type_t_SPARSE_MATRIX_TYPE_GENERAL,

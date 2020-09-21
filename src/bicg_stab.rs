@@ -3,7 +3,6 @@
 use super::{error::*, vecalg::*, MatVecMul};
 use cauchy::Scalar;
 use num_traits::{float::*, Zero};
-use sprs::CsMatView;
 use std::{
     intrinsics::{likely, unlikely},
     ptr::copy_nonoverlapping,
@@ -13,29 +12,16 @@ use std::{
 /// The backup implementation of BiCGSTAB algorithm when no BLAS/MKL is
 /// available, focusing on correctness not performance.
 #[allow(non_snake_case, non_camel_case_types)]
-pub struct BiCGStab<'data, T: Scalar + Send + Sync> {
-    A: CsMatView<'data, T>,
+pub struct BiCGStab<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> {
+    A: &'data M,
     workspace: Vec<T>,
+    size: usize,
 }
 
-impl<'data, T: Scalar + Send + Sync> BiCGStab<'data, T> {
+impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
     #[allow(non_snake_case)]
-    pub fn new(A: CsMatView<'data, T>) -> SolveResult<Self> {
-        if A.rows() != A.cols() {
-            return Err(SolverError::IncompatibleMatrixFormat(String::from(
-                "Not a square matrix",
-            )));
-        }
-
-        if !A.is_csr() {
-            return Err(SolverError::IncompatibleMatrixFormat(String::from(
-                "Not in CSR format",
-            )));
-        }
-        Ok(BiCGStab {
-            A,
-            workspace: vec![T::zero(); A.rows() * 6],
-        })
+    pub fn new(A: &'data M, size: usize) -> Self {
+        BiCGStab { A, workspace: vec![T::zero(); size * 6], size }
     }
 
     /// Solves Ax = b, without preconditioner
@@ -49,7 +35,7 @@ impl<'data, T: Scalar + Send + Sync> BiCGStab<'data, T> {
     ) -> SolveResult<(usize, T::Real)> {
         let n = rhs.len();
         // check the format
-        if n != self.A.rows() {
+        if n != self.size {
             return Err(SolverError::IncompatibleMatrixFormat(String::from(
                 "Input vec dimension doesn't match the matrix size",
             )));

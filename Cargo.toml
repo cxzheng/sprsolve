@@ -7,7 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["mkl", "parallel"] 
+default = [] #"mkl", "parallel"] 
 mkl = ["mkl-sys"]
 parallel = ["rayon"]   # use rayon for parallel computing
 
@@ -36,9 +36,13 @@ approx = "0.3.2"
 criterion = { version = "0.3.3", features = ['real_blackbox'] }
 
 [[bench]]
-name = "bench_bicg_stab"
+name = "bicgstab"
 harness = false
 
 [[bench]]
 name = "mat_vec_mul"
+harness = false
+
+[[bench]]
+name = "mkl_bicgstab"
 harness = false
