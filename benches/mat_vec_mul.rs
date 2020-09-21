@@ -1,17 +1,18 @@
-use sprsolve::MatVecMul;
 use criterion::{criterion_group, criterion_main, Criterion};
+use sprsolve::MatVecMul;
 
 #[cfg(feature = "parallel")]
 fn set_threads() {
     // Consider setting a fixed number of threads here, for example to avoid
     // oversubscribing on hyperthreaded cores.
     let n = 3;
-    let _ = rayon::ThreadPoolBuilder::new().num_threads(n).build_global();
+    let _ = rayon::ThreadPoolBuilder::new()
+        .num_threads(n)
+        .build_global();
     println!("BENCH with {} threads", n);
 }
 
 fn mat_vec_mul(c: &mut Criterion) {
-
     #[cfg(feature = "parallel")]
     set_threads();
 
@@ -27,8 +28,8 @@ fn mat_vec_mul(c: &mut Criterion) {
 
     let name = format!("Laplacian-Mul-{}", res);
     c.bench_function(&name, |b| {
-        b.iter(|| {
-            unsafe{ lap.mul_vec_unchecked(rhs.as_slice(), x.as_mut_slice()); }
+        b.iter(|| unsafe {
+            lap.mul_vec_unchecked(rhs.as_slice(), x.as_mut_slice());
         })
     });
 }

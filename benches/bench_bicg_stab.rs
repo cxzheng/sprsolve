@@ -5,7 +5,9 @@ fn set_threads() {
     // Consider setting a fixed number of threads here, for example to avoid
     // oversubscribing on hyperthreaded cores.
     let n = 2;
-    let _ = rayon::ThreadPoolBuilder::new().num_threads(n).build_global();
+    let _ = rayon::ThreadPoolBuilder::new()
+        .num_threads(n)
+        .build_global();
     println!("BENCH with {} threads", n);
 }
 
