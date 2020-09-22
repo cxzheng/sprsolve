@@ -61,10 +61,11 @@ impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
         let ptr = self.workspace.as_mut_ptr();
         let r = unsafe { from_raw_parts_mut(ptr, n) }; // &mut [T]
         let r0 = unsafe { from_raw_parts_mut(ptr.add(n), n) };
-        let s_z = unsafe { from_raw_parts_mut(ptr.add(2 * n), n) }; // s / z
-        let y = unsafe { from_raw_parts_mut(ptr.add(3 * n), n) };
-        let v = unsafe { from_raw_parts_mut(ptr.add(4 * n), n) };
-        let t = unsafe { from_raw_parts_mut(ptr.add(5 * n), n) };
+        let y = unsafe { from_raw_parts_mut(ptr.add(2 * n), n) };
+        let v = unsafe { from_raw_parts_mut(ptr.add(3 * n), n) };
+        let t = unsafe { from_raw_parts_mut(ptr.add(4 * n), n) };
+        // Without precond. we don't need s/z here.
+        // let s_z = unsafe { from_raw_parts_mut(ptr.add(5 * n), n) }; // s / z 
         unsafe {
             self.A.mul_vec_unchecked(x, &mut *r);
         }
@@ -91,30 +92,27 @@ impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
         }
         // alpha = rho / r0.v
         let mut alpha = rho / conj_dot(&*r0, &*v);
-        // - s = r
+
+        // - r = r - alpha * v
+        // Now r is the s in the algorithm
+        axpy(-alpha, &*v, &mut *r);
+
+        // - t = A * z ==> t = A * r
         unsafe {
-            copy_nonoverlapping(r.as_ptr(), s_z.as_mut_ptr(), n);
-        }
-        // - z = s = r - alpha * v
-        axpy(-alpha, &*v, &mut *s_z);
-        // - t = A * z
-        unsafe {
-            self.A.mul_vec_unchecked(&*s_z, &mut *t);
+            self.A.mul_vec_unchecked(&*r, &mut *t);
         }
         // tmp = t.t
         let tmp = conj_dot(&*t, &*t);
         if likely(tmp.re() > T::Real::zero()) {
-            // w = t.s/tmp
-            w = conj_dot(&*t, &*s_z) / tmp;
+            // w = t.s/tmp ==> w = t.r/tmp
+            w = conj_dot(&*t, &*r) / tmp;
         }
         // x = x - alpha*y - w*z
         axpy(-alpha, &*y, &mut *x);
-        axpy(-w, &*s_z, &mut *x);
-        // r = s
-        unsafe {
-            copy_nonoverlapping(s_z.as_ptr(), r.as_mut_ptr(), n);
-        }
+        // Without precond: s_z (\hat s) is s, which is r
+        axpy(-w, &*r, &mut *x);
         // r = s - w * t
+        // now because r is the s, we have r = r - w*t
         axpy(-w, &*t, &mut *r);
 
         for its in 1..max_iter {
@@ -156,13 +154,6 @@ impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
             }
 
             alpha = rho / tmp;
-            // - s = r
-//            unsafe {
-//                copy_nonoverlapping(r.as_ptr(), s_z.as_mut_ptr(), n);
-//            }
-            // - z = s = r - alpha * v
-//            axpy(-alpha, &*v, &mut *s_z);
-
             // - r = r - alpha * v
             // Now r is the s in the algorithm
             axpy(-alpha, &*v, &mut *r);
@@ -181,13 +172,8 @@ impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
             // without precond: s_z (\hat s) is s, which is r
             axpy(-w, &*r, &mut *x); // x - alpha*y - w*r
             //axpy(-w, &*s_z, &mut *x); // x - alpha*y - w*z
-//            unsafe {
-//                // r = s
-//                copy_nonoverlapping(s_z.as_ptr(), r.as_mut_ptr(), n);
-//            }
             // r = s - w * t
             // now because r is the s, we have r = r - w*t
-//            axpy(-w, &*t, &mut *r);
             axpy(-w, &*t, &mut *r);
         }
 
