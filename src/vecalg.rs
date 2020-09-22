@@ -32,6 +32,17 @@ where
 
 /// compute $\mathbf{x}\cdot\mathbf{y} = \mathbf{x}^H\mathbf{y}$.
 ///
+/// ```
+/// # use sprsolve::vecalg::conj_dot;
+/// use cauchy::c64;
+///
+/// let a = vec![c64::new(4., 3.); 100];
+/// let b = vec![c64::new(2., -3.); 100];
+/// let r = conj_dot(a.as_slice(), b.as_slice());
+/// let t = a[0].conj() * b[0] * 100.;
+/// approx::assert_abs_diff_eq!(t.re, r.re); //, epsilon = f64::EPSILON);
+/// approx::assert_abs_diff_eq!(t.im, r.im);
+/// ```
 /// **NOTE:** If the vector is complex-valued, this function is conjugate-linear to
 /// the first argument, and linear to the second argument.
 #[cfg(not(feature = "mkl"))]
@@ -75,6 +86,31 @@ where
 {
     assert_eq!(vec1[..].len(), vec2[..].len());
     axpy_fallback(a, &vec1[..], &mut vec2[..])
+}
+
+/// The `axpby` operation as in MKL: vec2 = vec2 + a*vec1
+/// 
+/// # Example
+/// 
+/// ```
+/// # use sprsolve::vecalg::axpby;
+/// let a = vec![1_f32; 128];
+/// let mut b = vec![2_f32; 128];
+/// axpby(2., a.as_slice(), -1., b.as_mut_slice());
+/// for i in 0..b.len() {
+///     approx::assert_abs_diff_eq!(0., b[i]);
+/// }
+/// ```
+#[cfg(not(feature = "mkl"))]
+pub fn axpby<S, T, IN, OUT>(a: S, vec1: IN, b: S, mut vec2: OUT)
+where
+    S: Copy,
+    T: Scalar + Mul<S, Output = T>,
+    IN: Deref<Target = [T]>,
+    OUT: DerefMut<Target = [T]>,
+{
+    assert_eq!(vec1[..].len(), vec2[..].len());
+    axpby_fallback(a, &vec1[..], b, &mut vec2[..])
 }
 
 /// Dot product with CBLAS calls.
@@ -326,6 +362,71 @@ where
     axpy_fallback(a, &vec1[..], &mut vec2[..])
 }
 
+/// The `axpby` operation as in MKL: vec2 = vec2 + a*vec1
+/// 
+/// # Example
+/// 
+/// ```
+/// # use sprsolve::vecalg::axpby;
+/// let a = vec![1_f32; 128];
+/// let mut b = vec![2_f32; 128];
+/// axpby(2., a.as_slice(), -1., b.as_mut_slice());
+/// for i in 0..b.len() {
+///     approx::assert_abs_diff_eq!(0., b[i]);
+/// }
+/// ```
+#[cfg(feature = "mkl")]
+pub fn axpby<T, IN, OUT>(a: T, vec1: IN, b: T, mut vec2: OUT)
+where
+    T: Scalar,
+    IN: Deref<Target = [T]>,
+    OUT: DerefMut<Target = [T]>,
+{
+    let n = vec1[..].len();
+    assert_eq!(n, vec2[..].len());
+    if n > AXPY_BLAS_CUTOFF && n < std::os::raw::c_int::max_value() as usize {
+        macro_rules! axpy {
+            ($ty:ty, $func:ident, {}) => {
+                if super::same_type::<T, $ty>() {
+                    unsafe {
+                        $func(
+                            n as i32,
+                            super::cast_as::<T, $ty>(&a),
+                            vec1[..].as_ptr() as *const $ty,
+                            1,
+                            super::cast_as::<T, $ty>(&b),
+                            vec2[..].as_mut_ptr() as *mut $ty,
+                            1,
+                        );
+                    }
+                    return;
+                }
+            };
+            ($ty:ty, $func:ident, {complex}) => {
+                if super::same_type::<T, num_complex::Complex<$ty>>() {
+                    unsafe {
+                        $func(
+                            n as i32,
+                            &a as *const T as *const c_void,
+                            vec1[..].as_ptr() as *const c_void,
+                            1,
+                            &b as *const T as *const c_void,
+                            vec2[..].as_mut_ptr() as *mut c_void,
+                            1,
+                        );
+                    }
+                    return;
+                }
+            };
+        }
+        axpy! {f32, cblas_saxpby, {}};
+        axpy! {f64, cblas_daxpby, {}};
+        axpy! {f32, cblas_caxpby, {complex}};
+        axpy! {f64, cblas_zaxpby, {complex}};
+    }
+    axpby_fallback(a, &vec1[..], b, &mut vec2[..])
+}
+
 #[inline]
 fn dot_fallback<T: Scalar>(vec1: &[T], vec2: &[T]) -> T {
     vec1.iter()
@@ -345,6 +446,13 @@ fn axpy_fallback<S: Copy, T: Scalar + Mul<S, Output = T>>(a: S, vec1: &[T], vec2
     vec2.iter_mut()
         .zip(vec1.iter())
         .for_each(|(y, x)| *y += *x * a);
+}
+
+#[inline]
+fn axpby_fallback<S: Copy, T: Scalar + Mul<S, Output = T>>(a: S, vec1: &[T], b: S, vec2: &mut [T]) {
+    vec2.iter_mut()
+        .zip(vec1.iter())
+        .for_each(|(y, x)| *y = *x * a + *y * b);
 }
 
 #[inline(always)]
@@ -531,6 +639,23 @@ mod tests {
         }
         for i in 0..a.len() {
             approx::assert_abs_diff_eq!(8., b[i]);
+        }
+    }
+    #[test]
+    fn axpby_f32() {
+        let a = vec![1_f32; 128];
+        let mut b = vec![0_f32; 128];
+        for _ in 0..4 {
+            axpby(2_f32, a.as_slice(), 1_f32, b.as_mut_slice());
+        }
+        for i in 0..a.len() {
+            approx::assert_abs_diff_eq!(8., b[i]);
+        }
+        for _ in 0..3 {
+            axpby(2_f32, a.as_slice(), -1_f32, b.as_mut_slice());
+        }
+        for i in 0..a.len() {
+            approx::assert_abs_diff_eq!(-6., b[i]);
         }
     }
 }

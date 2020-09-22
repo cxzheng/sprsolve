@@ -125,7 +125,7 @@ impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
             let rho_old = rho;
             rho = conj_dot(&*r0, &*r);
 
-            if unlikely(rho.abs() < r0_norm_tol) {
+            if unlikely(rho.abs() < r0_norm_tol) { // Here r0_norm_tol has been squared
                 // r = A*x
                 unsafe {
                     self.A.mul_vec_unchecked(x, &mut *r);
@@ -140,9 +140,10 @@ impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
                 r0_norm_tol = rho.re() * T::Real::epsilon() * T::Real::epsilon();
             }
             let beta = (rho / rho_old) * (alpha / w);
-            axpy(-w, &*v, &mut *y); // y - w*v
-            scale(beta, &mut *y);   // beta * (y-w*v)
-            axpy(T::one(), &*r, &mut *y); // y = r + beta * (y - w*v)
+
+            axpby(-beta*w, &*v, beta, &mut *y); // beta * (y - w*v)
+            axpy(T::one(), &*r, &mut* y); // y = r + beta * (y - w*v)
+
             unsafe {
                 // - v = A*y
                 self.A.mul_vec_unchecked(&*y, &mut *v);
