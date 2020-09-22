@@ -89,9 +89,9 @@ where
 }
 
 /// The `axpby` operation as in MKL: vec2 = vec2 + a*vec1
-/// 
+///
 /// # Example
-/// 
+///
 /// ```
 /// # use sprsolve::vecalg::axpby;
 /// let a = vec![1_f32; 128];
@@ -363,9 +363,9 @@ where
 }
 
 /// The `axpby` operation as in MKL: vec2 = vec2 + a*vec1
-/// 
+///
 /// # Example
-/// 
+///
 /// ```
 /// # use sprsolve::vecalg::axpby;
 /// let a = vec![1_f32; 128];

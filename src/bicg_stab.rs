@@ -65,7 +65,7 @@ impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
         let v = unsafe { from_raw_parts_mut(ptr.add(3 * n), n) };
         let t = unsafe { from_raw_parts_mut(ptr.add(4 * n), n) };
         // Without precond. we don't need s/z here.
-        // let s_z = unsafe { from_raw_parts_mut(ptr.add(5 * n), n) }; // s / z 
+        // let s_z = unsafe { from_raw_parts_mut(ptr.add(5 * n), n) }; // s / z
         unsafe {
             self.A.mul_vec_unchecked(x, &mut *r);
         }
@@ -123,7 +123,8 @@ impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
             let rho_old = rho;
             rho = conj_dot(&*r0, &*r);
 
-            if unlikely(rho.abs() < r0_norm_tol) { // Here r0_norm_tol has been squared
+            // Here r0_norm_tol has been squared
+            if unlikely(rho.abs() < r0_norm_tol) {
                 // r = A*x
                 unsafe {
                     self.A.mul_vec_unchecked(x, &mut *r);
@@ -146,8 +147,8 @@ impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
             */
             // On multi-processor machine with iomp5 on, the following
             // code (using MKL's `axpby` extension) is faster.
-            axpby(-beta*w, &*v, beta, &mut *y); // beta * (y - w*v)
-            axpy(T::one(), &*r, &mut* y); // y = r + beta * (y - w*v)
+            axpby(-beta * w, &*v, beta, &mut *y); // beta * (y - w*v)
+            axpy(T::one(), &*r, &mut *y); // y = r + beta * (y - w*v)
 
             unsafe {
                 // - v = A*y
@@ -176,8 +177,10 @@ impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
             }
             // x = x - alpha*y - w*z
             axpy(-alpha, &*y, &mut *x); // x - alpha * y
+
             // without precond: s_z (\hat s) is s, which is r
             axpy(-w, &*r, &mut *x); // x - alpha*y - w*r
+
             //axpy(-w, &*s_z, &mut *x); // x - alpha*y - w*z
             // r = s - w * t
             // now because r is the s, we have r = r - w*t
