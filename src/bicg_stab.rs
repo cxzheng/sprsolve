@@ -9,8 +9,10 @@ use std::{
     slice::from_raw_parts_mut,
 };
 
-/// The backup implementation of BiCGSTAB algorithm when no BLAS/MKL is
-/// available, focusing on correctness not performance.
+/// Implementation of BiCGSTAB algorithm for solving non-symmetric positive indefinite 
+/// sparse linear system.
+/// 
+/// Note: consider to turn on `mkl` feature for improved performance.
 #[allow(non_snake_case, non_camel_case_types)]
 pub struct BiCGStab<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> {
     A: &'data M,
@@ -52,6 +54,7 @@ impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
 
         let rhs_norm = norm2(rhs);
         if unlikely(rhs_norm <= T::Real::epsilon()) {
+            // when rhs = 0, x is set to zero.
             x.iter_mut().for_each(|v| *v = T::zero());
             return Ok((0, rhs_norm));
         }
