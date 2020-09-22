@@ -10,9 +10,11 @@ use std::ops::{Deref, DerefMut, Mul};
 use std::ffi::c_void;
 /// len of vector before we use blas
 #[cfg(feature = "mkl")]
-const DOT_BLAS_CUTOFF: usize = 32;
+const DOT_BLAS_CUTOFF: usize = 64;
 #[cfg(feature = "mkl")]
 const SCALE_BLAS_CUTOFF: usize = 64;
+#[cfg(feature = "mkl")]
+const AXPY_BLAS_CUTOFF: usize = 64;
 
 /// compute $\mathbf{x}\cdot\mathbf{y} = \mathbf{x}^T\mathbf{y}$.
 ///
@@ -60,6 +62,19 @@ where
     VEC: DerefMut<Target = [T]>,
 {
     scale_fallback(a, &mut vec[..]);
+}
+
+/// The standard `axpy` operation as in BLAS: vec2 = vec2 + a*vec1
+#[cfg(not(feature = "mkl"))]
+pub fn axpy<S, T, IN, OUT>(a: S, vec1: IN, mut vec2: OUT)
+where
+    S: Copy,
+    T: Scalar + Mul<S, Output = T>,
+    IN: Deref<Target = [T]>,
+    OUT: DerefMut<Target = [T]>,
+{
+    assert_eq!(vec1[..].len(), vec2[..].len());
+    axpy_fallback(a, &vec1[..], &mut vec2[..])
 }
 
 /// Dot product with CBLAS calls.
@@ -216,7 +231,6 @@ where
     norm2_fallback(&vec[..])
 }
 
-
 /// Compute vec = vec * a
 #[cfg(feature = "mkl")]
 pub fn scale<T, VEC>(a: T, mut vec: VEC)
@@ -256,21 +270,59 @@ where
         }
         scale! {f32, cblas_sscal, {}};
         scale! {f64, cblas_dscal, {}};
-        scale! {f32, cblas_cscal, {complex} };
-        scale! {f64, cblas_zscal, {complex} };
+        scale! {f32, cblas_cscal, {complex}};
+        scale! {f64, cblas_zscal, {complex}};
     }
     scale_fallback(a, &mut vec[..]);
 }
 
-/// The standard `axpy` operation as in BLAS: vec2 = vec2 + a*vec1
-pub fn axpy<S, T, IN, OUT>(a: S, vec1: IN, mut vec2: OUT)
+#[cfg(feature = "mkl")]
+pub fn axpy<T, IN, OUT>(a: T, vec1: IN, mut vec2: OUT)
 where
-    S: Copy,
-    T: Scalar + Mul<S, Output = T>,
+    T: Scalar,
     IN: Deref<Target = [T]>,
     OUT: DerefMut<Target = [T]>,
 {
-    assert_eq!(vec1[..].len(), vec2[..].len());
+    let n = vec1[..].len();
+    assert_eq!(n, vec2[..].len());
+    if n > AXPY_BLAS_CUTOFF && n < std::os::raw::c_int::max_value() as usize {
+        macro_rules! axpy {
+            ($ty:ty, $func:ident, {}) => {
+                if super::same_type::<T, $ty>() {
+                    unsafe {
+                        $func(
+                            n as i32,
+                            super::cast_as::<T, $ty>(&a),
+                            vec1[..].as_ptr() as *const $ty,
+                            1,
+                            vec2[..].as_mut_ptr() as *mut $ty,
+                            1,
+                        );
+                    }
+                    return;
+                }
+            };
+            ($ty:ty, $func:ident, {complex}) => {
+                if super::same_type::<T, num_complex::Complex<$ty>>() {
+                    unsafe {
+                        $func(
+                            n as i32,
+                            &a as *const T as *const c_void,
+                            vec1[..].as_ptr() as *const c_void,
+                            1,
+                            vec2[..].as_mut_ptr() as *mut c_void,
+                            1,
+                        );
+                    }
+                    return;
+                }
+            };
+        }
+        axpy! {f32, cblas_saxpy, {}};
+        axpy! {f64, cblas_daxpy, {}};
+        axpy! {f32, cblas_caxpy, {complex}};
+        axpy! {f64, cblas_zaxpy, {complex}};
+    }
     axpy_fallback(a, &vec1[..], &mut vec2[..])
 }
 
@@ -471,11 +523,11 @@ mod tests {
     }
 
     #[test]
-    fn axpy_generic_f32() {
-        let a = vec![1_f32; 6];
-        let mut b = vec![0_f32; 6];
+    fn axpy_f32() {
+        let a = vec![1_f32; 128];
+        let mut b = vec![0_f32; 128];
         for _ in 0..4 {
-            axpy_fallback(2_f32, &a, &mut b);
+            axpy(2_f32, a.as_slice(), b.as_mut_slice());
         }
         for i in 0..a.len() {
             approx::assert_abs_diff_eq!(8., b[i]);
