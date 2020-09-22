@@ -1,29 +1,29 @@
-use sprsolve::MatVecMul;
-//use sprsolve::MklMat;
+use sprsolve::MklMat;
 
 fn main() {
-    let (rows, cols) = (6, 6);
+    let res = 100;
+    let (rows, cols) = (res, res);
     let lap = grid_laplacian((rows, cols));
     let mut rhs = vec![0_f64; rows * cols];
     set_boundary_condition(rhs.as_mut_slice(), (rows, cols), |row, col| {
         (row + col) as f64
     });
 
+    let mkl_mat = MklMat::new(lap).unwrap();
     let mut x = vec![0_f64; rows * cols];
-    unsafe {
-        lap.mul_vec_unchecked(rhs.as_slice(), x.as_mut_slice());
-    }
-    println!("{:?}", x);
-    /*
-    let mut solver = sprsolve::BiCGStab::new(lap.view()).unwrap();
+    //unsafe {
+    //    mkl_mat.mul_vec_unchecked(rhs.as_slice(), x.as_mut_slice());
+    //}
+    //println!("{:?}", x);
+    println!("Use MKL");
+    let mut solver = sprsolve::BiCGStab::new(&mkl_mat, mkl_mat.size());
     let (iters, res) = solver
-        .solve(rhs.as_slice(), x.as_mut_slice(), 1000, 1E-16)
+        .solve(rhs.as_slice(), x.as_mut_slice(), 1500, 1E-16)
         .unwrap();
     println!(
         "Solved system in {} iterations with relative residual error {}",
         iters, res
     );
-    */
 }
 
 /// Determine whether the grid location at `(row, col)` is a border

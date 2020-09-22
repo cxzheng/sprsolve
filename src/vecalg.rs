@@ -62,49 +62,58 @@ where
     scale_fallback(a, &mut vec[..]);
 }
 
-/// Compute vec = vec * a
+/// Dot product with CBLAS calls.
 #[cfg(feature = "mkl")]
-pub fn scale<T, VEC>(a: T, mut vec: VEC)
+pub fn dot<T, IN1, IN2>(vec1: IN1, vec2: IN2) -> T
 where
     T: Scalar,
-    VEC: DerefMut<Target = [T]>,
+    IN1: Deref<Target = [T]>,
+    IN2: Deref<Target = [T]>,
 {
-    let n = vec[..].len();
-    if n > SCALE_BLAS_CUTOFF && n < std::os::raw::c_int::max_value() as usize {
-        macro_rules! scale {
+    let n = vec1[..].len();
+    assert!(n == vec2[..].len());
+
+    // Use only if the vector is large enough to be worth it
+    if n > DOT_BLAS_CUTOFF && n < std::os::raw::c_int::max_value() as usize {
+        macro_rules! dot {
             ($ty:ty, $func:ident, {}) => {
                 if super::same_type::<T, $ty>() {
-                    unsafe {
+                    let v = unsafe {
                         $func(
                             n as i32, // this is safe because the assert! above
-                            super::cast_as::<T, $ty>(&a),
-                            vec[..].as_mut_ptr() as *mut $ty,
+                            vec1[..].as_ptr() as *const $ty,
+                            1,
+                            vec2[..].as_ptr() as *const $ty,
                             1,
                         )
                     };
-                    return;
+                    return super::cast_as::<$ty, T>(&v);
                 }
             };
             ($ty:ty, $func:ident, {complex}) => {
                 if super::same_type::<T, num_complex::Complex<$ty>>() {
+                    let mut r: num_complex::Complex<$ty> = Default::default();
                     unsafe {
                         $func(
                             n as i32, // this is safe because the assert! above
-                            &a as *const T as *const c_void,
-                            vec[..].as_mut_ptr() as *mut c_void,
+                            vec1[..].as_ptr() as *const c_void,
                             1,
+                            vec2[..].as_ptr() as *const c_void,
+                            1,
+                            &mut r as *mut num_complex::Complex<$ty> as *mut c_void,
                         );
                     }
-                    return;
+                    return super::cast_as::<num_complex::Complex<$ty>, T>(&r);
                 }
             };
         }
-        scale! {f32, cblas_sscal, {}};
-        scale! {f64, cblas_dscal, {}};
-        scale! {f32, cblas_cscal, {complex} };
-        scale! {f64, cblas_zscal, {complex} };
+
+        dot! {f32, cblas_sdot, {}};
+        dot! {f64, cblas_ddot, {}};
+        dot! {f32, cblas_cdotu_sub, {complex} };
+        dot! {f64, cblas_zdotu_sub, {complex} };
     }
-    scale_fallback(a, &mut vec[..]);
+    dot_fallback(&vec1[..], &vec2[..])
 }
 
 /// compute $\mathbf{x}\cdot\mathbf{y} = \mathbf{x}^H\mathbf{y}$.
@@ -207,58 +216,50 @@ where
     norm2_fallback(&vec[..])
 }
 
-/// Dot product with CBLAS calls.
+
+/// Compute vec = vec * a
 #[cfg(feature = "mkl")]
-pub fn dot<T, IN1, IN2>(vec1: IN1, vec2: IN2) -> T
+pub fn scale<T, VEC>(a: T, mut vec: VEC)
 where
     T: Scalar,
-    IN1: Deref<Target = [T]>,
-    IN2: Deref<Target = [T]>,
+    VEC: DerefMut<Target = [T]>,
 {
-    let n = vec1[..].len();
-    assert!(n == vec2[..].len());
-
-    // Use only if the vector is large enough to be worth it
-    if n > DOT_BLAS_CUTOFF && n < std::os::raw::c_int::max_value() as usize {
-        macro_rules! dot {
+    let n = vec[..].len();
+    if n > SCALE_BLAS_CUTOFF && n < std::os::raw::c_int::max_value() as usize {
+        macro_rules! scale {
             ($ty:ty, $func:ident, {}) => {
                 if super::same_type::<T, $ty>() {
-                    let v = unsafe {
+                    unsafe {
                         $func(
                             n as i32, // this is safe because the assert! above
-                            vec1[..].as_ptr() as *const $ty,
-                            1,
-                            vec2[..].as_ptr() as *const $ty,
+                            super::cast_as::<T, $ty>(&a),
+                            vec[..].as_mut_ptr() as *mut $ty,
                             1,
                         )
                     };
-                    return super::cast_as::<$ty, T>(&v);
+                    return;
                 }
             };
             ($ty:ty, $func:ident, {complex}) => {
                 if super::same_type::<T, num_complex::Complex<$ty>>() {
-                    let mut r: num_complex::Complex<$ty> = Default::default();
                     unsafe {
                         $func(
                             n as i32, // this is safe because the assert! above
-                            vec1[..].as_ptr() as *const c_void,
+                            &a as *const T as *const c_void,
+                            vec[..].as_mut_ptr() as *mut c_void,
                             1,
-                            vec2[..].as_ptr() as *const c_void,
-                            1,
-                            &mut r as *mut num_complex::Complex<$ty> as *mut c_void,
                         );
                     }
-                    return super::cast_as::<num_complex::Complex<$ty>, T>(&r);
+                    return;
                 }
             };
         }
-
-        dot! {f32, cblas_sdot, {}};
-        dot! {f64, cblas_ddot, {}};
-        dot! {f32, cblas_cdotu_sub, {complex} };
-        dot! {f64, cblas_zdotu_sub, {complex} };
+        scale! {f32, cblas_sscal, {}};
+        scale! {f64, cblas_dscal, {}};
+        scale! {f32, cblas_cscal, {complex} };
+        scale! {f64, cblas_zscal, {complex} };
     }
-    dot_fallback(&vec1[..], &vec2[..])
+    scale_fallback(a, &mut vec[..]);
 }
 
 /// The standard `axpy` operation as in BLAS: vec2 = vec2 + a*vec1
