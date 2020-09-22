@@ -141,7 +141,7 @@ impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
             }
             let beta = (rho / rho_old) * (alpha / w);
             axpy(-w, &*v, &mut *y); // y - w*v
-            scale(beta, &mut *y); // beta * (y-w*v)
+            scale(beta, &mut *y);   // beta * (y-w*v)
             axpy(T::one(), &*r, &mut *y); // y = r + beta * (y - w*v)
             unsafe {
                 // - v = A*y
