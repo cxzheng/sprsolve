@@ -24,8 +24,8 @@ rayon = { version = "1.4.0", optional = true }
 
 [dependencies.mkl-sys]
 git = "https://github.com/cxzheng/mkl-sys.git" 
-#default-features = false
-#features = ["mkl-static-lp64-iomp"]
+default-features = false
+features = ["mkl-static-lp64-iomp"]
 optional = true
 
 [profile.release]

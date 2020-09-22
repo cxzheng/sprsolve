@@ -7,7 +7,7 @@ fn bench_mkl_bicgstab(_c: &mut Criterion) {}
 
 #[cfg(feature = "mkl")]
 fn bench_mkl_bicgstab(c: &mut Criterion) {
-    let res = 100;
+    let res = 110;
     let (rows, cols) = (res, res);
     let lap = grid_laplacian((rows, cols));
     let mut rhs = vec![0_f64; rows * cols];
