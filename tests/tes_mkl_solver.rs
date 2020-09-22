@@ -3,7 +3,7 @@ use sprsolve::MklMat;
 
 #[test]
 fn test_bicg_stab_with_mkl() {
-    let (rows, cols) = (16, 16);
+    let (rows, cols) = (10, 10);
     let lap = grid_laplacian((rows, cols));
     let mut rhs = vec![0_f64; rows * cols];
     set_boundary_condition(rhs.as_mut_slice(), (rows, cols), |row, col| {
