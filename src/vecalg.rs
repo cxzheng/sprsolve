@@ -20,6 +20,7 @@ const AXPY_BLAS_CUTOFF: usize = 64;
 ///
 /// **NOTE:** No conjugate is taken if the vector is complex-valued.
 #[cfg(not(feature = "mkl"))]
+#[inline]
 pub fn dot<T, IN1, IN2>(vec1: IN1, vec2: IN2) -> T
 where
     T: Scalar,
@@ -46,6 +47,7 @@ where
 /// **NOTE:** If the vector is complex-valued, this function is conjugate-linear to
 /// the first argument, and linear to the second argument.
 #[cfg(not(feature = "mkl"))]
+#[inline]
 pub fn conj_dot<T, IN1, IN2>(vec1: IN1, vec2: IN2) -> T
 where
     T: Scalar,
@@ -57,6 +59,7 @@ where
 }
 
 #[cfg(not(feature = "mkl"))]
+#[inline]
 pub fn norm2<T, VEC>(vec: VEC) -> T::Real
 where
     T: Scalar,
@@ -67,6 +70,7 @@ where
 
 /// Compute vec = vec * a
 #[cfg(not(feature = "mkl"))]
+#[inline]
 pub fn scale<T, VEC>(a: T, mut vec: VEC)
 where
     T: Scalar,
@@ -77,6 +81,7 @@ where
 
 /// The standard `axpy` operation as in BLAS: vec2 = vec2 + a*vec1
 #[cfg(not(feature = "mkl"))]
+#[inline]
 pub fn axpy<S, T, IN, OUT>(a: S, vec1: IN, mut vec2: OUT)
 where
     S: Copy,
@@ -102,6 +107,7 @@ where
 /// }
 /// ```
 #[cfg(not(feature = "mkl"))]
+#[inline]
 pub fn axpby<S, T, IN, OUT>(a: S, vec1: IN, b: S, mut vec2: OUT)
 where
     S: Copy,
