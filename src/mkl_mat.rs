@@ -73,11 +73,10 @@ impl<T: Scalar> MklMat<T> {
         unreachable!();
     }
 
-    /// Set the hint for matrix-vector multiplication for performance optimization.
+    /// Set the hint for matrix-vector multiplication and matrix-vector dot for performance optimization.
     ///
     /// It calls MKL routines to set both `mkl_sparse_set_mv_hint` and `mkl_sparse_dotmv_hint`,
-    /// because oftentimes both `mv` and `dotmv` are used in an iterative linear solver.
-    /// e.g., See [`BiCGStab`]
+    /// because sometimes both `mv` and `dotmv` are used in an iterative linear solver.
     #[inline]
     pub fn mv_and_dotmv_hint(&self, ncalls: i32) -> Result<(), u32> {
         debug_assert!(ncalls > 0);
@@ -117,6 +116,10 @@ impl<T: Scalar> MklMat<T> {
         Ok(())
     }
 
+    /// Set the hint for matrix-vector multiplication for performance optimization.
+    ///
+    /// It calls MKL routines to set `mkl_sparse_set_mv_hint`,
+    /// e.g., See [`BiCGStab`]
     #[inline]
     pub fn mv_hint(&self, ncalls: i32) -> Result<(), u32> {
         debug_assert!(ncalls > 0);
