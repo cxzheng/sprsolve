@@ -9,7 +9,7 @@ mod mat;
 mod mkl_mat;
 pub mod vecalg;
 
-pub use bicg_stab::*;
+pub use bicg_stab::BiCGStab;
 pub use gauss_seidel::*;
 pub use mat::MatVecMul;
 #[cfg(feature = "mkl")]
