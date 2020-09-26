@@ -9,9 +9,9 @@ use std::{
     slice::from_raw_parts_mut,
 };
 
-/// Implementation of BiCGSTAB algorithm for solving non-symmetric positive indefinite 
+/// Implementation of BiCGSTAB algorithm for solving non-symmetric positive indefinite
 /// sparse linear system.
-/// 
+///
 /// Note: consider to turn on `mkl` feature for improved performance.
 #[allow(non_snake_case, non_camel_case_types)]
 pub struct BiCGStab<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> {
@@ -78,7 +78,7 @@ impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
             copy_nonoverlapping(r.as_ptr(), r0.as_mut_ptr(), n);
         }
         let r0_norm = norm2(&*r0);
-        if r0_norm <= tol2 {
+        if unlikely(r0_norm <= tol2) {
             return Ok((0, r0_norm / rhs_norm));
         }
         let mut r0_norm_tol = r0_norm * T::Real::epsilon();
@@ -175,6 +175,8 @@ impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
             // tmp = t.t
             let tmp = conj_dot(&*t, &*t);
             if likely(tmp.re() > T::Real::zero()) {
+                // NOTE: Here we could have used `mul_vec_dot` to combine t.r with A*r above.
+                // But this won't be applicable for precond. BiCGStab method. So we don't do it for now.
                 // w = t.s/tmp ==> w = t.r/tmp
                 w = conj_dot(&*t, &*r) / tmp;
             }

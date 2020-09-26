@@ -3,7 +3,7 @@ use num::ToPrimitive;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 use sprs::{CompressedStorage, CsMatI, CsMatViewI, SpIndex};
-use std::{slice::from_raw_parts, intrinsics::likely};
+use std::{intrinsics::likely, slice::from_raw_parts};
 
 /// An interface for the sparse matrix and dense vector multiplication.
 ///
@@ -64,6 +64,8 @@ impl<'a, T: Scalar + Send + Sync, I: SpIndex + ToPrimitive> MatVecMul<T> for CsM
         debug_assert!(self.cols() == v_in.len() && v_in.len() == v_out.len());
         v_out.iter_mut().for_each(|v| *v = T::zero());
 
+        // We don't use `match` here because the `likely` instrinsics leads to better
+        // branch layout in the assembly code.
         if likely(self.storage() == CompressedStorage::CSR) {
             /*
             if cfg!(target_feature = "avx") {
@@ -79,8 +81,10 @@ impl<'a, T: Scalar + Send + Sync, I: SpIndex + ToPrimitive> MatVecMul<T> for CsM
                 let indptr = self.indptr();
                 let index_ptr = SendPtr(self.indices().as_ptr());
                 let data_ptr = SendPtr(self.data().as_ptr());
-                indptr.par_windows(2).zip(v_out.par_iter_mut()).for_each(
-                    |(row_range, row_ret)| {
+                indptr
+                    .par_windows(2)
+                    .zip(v_out.par_iter_mut())
+                    .for_each(|(row_range, row_ret)| {
                         let st = row_range.get_unchecked(0).to_usize().unwrap();
                         let nn = row_range.get_unchecked(1).to_usize().unwrap() - st;
                         let local_idx = from_raw_parts(index_ptr.0.add(st), nn); // directly construct slice to avoid bound check
@@ -91,8 +95,7 @@ impl<'a, T: Scalar + Send + Sync, I: SpIndex + ToPrimitive> MatVecMul<T> for CsM
                                 acc + *v_in.get_unchecked(lid.to_usize().unwrap()) * ldat
                             },
                         );
-                    },
-                );
+                    });
             }
             #[cfg(not(feature = "parallel"))]
             {
@@ -116,7 +119,8 @@ impl<'a, T: Scalar + Send + Sync, I: SpIndex + ToPrimitive> MatVecMul<T> for CsM
                         );
                     });
             }
-        } else { // CSC
+        } else {
+            // CSC
             // We dont' do any performance optimization for CSC yet.
             // As we haven't used it that much.
             // initialize it
