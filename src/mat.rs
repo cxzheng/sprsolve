@@ -78,12 +78,14 @@ impl<'a, T: Scalar + Send + Sync, I: SpIndex + ToPrimitive> MatVecMul<T> for CsM
             // When `parallel` is enabled, use rayon to parallelize the outer index iteration
             #[cfg(feature = "parallel")]
             {
+                const MIN_CHUNK_SIZE: usize = 128;
                 let indptr = self.indptr();
                 let index_ptr = SendPtr(self.indices().as_ptr());
                 let data_ptr = SendPtr(self.data().as_ptr());
                 indptr
                     .par_windows(2)
-                    .zip(v_out.par_iter_mut())
+                    .with_min_len(MIN_CHUNK_SIZE)
+                    .zip(v_out.par_iter_mut().with_min_len(MIN_CHUNK_SIZE))
                     .for_each(|(row_range, row_ret)| {
                         let st = row_range.get_unchecked(0).to_usize().unwrap();
                         let nn = row_range.get_unchecked(1).to_usize().unwrap() - st;

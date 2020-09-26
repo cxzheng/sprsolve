@@ -16,9 +16,10 @@ fn mat_vec_mul(c: &mut Criterion) {
     #[cfg(feature = "parallel")]
     set_threads();
 
-    let res = 100;
+    let res = 140;
     let (rows, cols) = (res, res);
     let lap = grid_laplacian((rows, cols));
+    println!("Matrix size: {}", lap.cols());
     let mut rhs = vec![0_f64; rows * cols];
     set_boundary_condition(rhs.as_mut_slice(), (rows, cols), |row, col| {
         (row + col) as f64
