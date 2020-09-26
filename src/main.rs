@@ -2,13 +2,18 @@ use sprsolve::MatVecMul;
 //use sprsolve::MklMat;
 
 fn main() {
-    let res = 100;
+    let res = 4;
     let (rows, cols) = (res, res);
     let lap = grid_laplacian((rows, cols));
     let mut rhs = vec![0_f64; rows * cols];
     set_boundary_condition(rhs.as_mut_slice(), (rows, cols), |row, col| {
         (row + col) as f64
     });
+
+    println!(
+        "grid laplacian nnz structure:\n{}",
+        sprs::visu::nnz_pattern_formatter(lap.view()),
+    );
 
     //let mkl_mat = MklMat::new(lap).unwrap();
     let mut x = vec![0_f64; rows * cols];
