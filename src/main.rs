@@ -1,3 +1,4 @@
+use sprsolve::MatVecMul;
 use sprsolve::MklMat;
 
 fn main() {
@@ -9,12 +10,14 @@ fn main() {
         (row + col) as f64
     });
 
-    let mkl_mat = MklMat::new(lap).unwrap();
+    //let mkl_mat = MklMat::new(lap).unwrap();
     let mut x = vec![0_f64; rows * cols];
-    //unsafe {
-    //    mkl_mat.mul_vec_unchecked(rhs.as_slice(), x.as_mut_slice());
-    //}
-    //println!("{:?}", x);
+    unsafe {
+        //mkl_mat.mul_vec_unchecked(rhs.as_slice(), x.as_mut_slice());
+        lap.mul_vec_unchecked(rhs.as_slice(), x.as_mut_slice());
+    }
+    println!("{:?}", x);
+    /*
     println!("Use MKL");
     let mut solver = sprsolve::BiCGStab::new(&mkl_mat, mkl_mat.size());
     let (iters, res) = solver
@@ -24,6 +27,7 @@ fn main() {
         "Solved system in {} iterations with relative residual error {}",
         iters, res
     );
+    */
 }
 
 /// Determine whether the grid location at `(row, col)` is a border
