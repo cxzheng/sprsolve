@@ -1,5 +1,4 @@
 use cauchy::Scalar;
-use num::ToPrimitive;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 use sprs::{CompressedStorage, CsMatI, CsMatViewI, SpIndex};
@@ -37,8 +36,15 @@ pub trait MatVecMul<T: Scalar> {
     unsafe fn mul_vec_dot_unchecked(&self, v_in: &[T], v_out: &mut [T]) -> T;
 }
 
+/// The trait to convert a value into usize.
+///  
+/// We define this trait to avoid explicit check.
+pub trait AsUsize {
+    fn as_usize(&self) -> usize;
+}
+
 // 'a refers to the lt of data in CSMatView
-impl<'a, T: Scalar + Send + Sync, I: SpIndex + ToPrimitive> MatVecMul<T> for CsMatViewI<'a, T, I> {
+impl<'a, T: Scalar + Send + Sync, I: SpIndex + AsUsize> MatVecMul<T> for CsMatViewI<'a, T, I> {
     #[inline]
     fn mul_vec(&self, v_in: &[T], v_out: &mut [T]) {
         if self.cols() != v_in.len() || v_in.len() != v_out.len() {
@@ -87,14 +93,14 @@ impl<'a, T: Scalar + Send + Sync, I: SpIndex + ToPrimitive> MatVecMul<T> for CsM
                     .with_min_len(MIN_CHUNK_SIZE)
                     .zip(v_out.par_iter_mut().with_min_len(MIN_CHUNK_SIZE))
                     .for_each(|(row_range, row_ret)| {
-                        let st = row_range.get_unchecked(0).to_usize().unwrap();
-                        let nn = row_range.get_unchecked(1).to_usize().unwrap() - st;
+                        let st = row_range.get_unchecked(0).as_usize();
+                        let nn = row_range.get_unchecked(1).as_usize() - st;
                         let local_idx = from_raw_parts(index_ptr.0.add(st), nn); // directly construct slice to avoid bound check
                         let local_dat = from_raw_parts(data_ptr.0.add(st), nn);
                         *row_ret = local_idx.iter().zip(local_dat.iter()).fold(
                             T::zero(),
                             |acc, (&lid, &ldat)| {
-                                acc + *v_in.get_unchecked(lid.to_usize().unwrap()) * ldat
+                                acc + *v_in.get_unchecked(lid.as_usize()) * ldat
                             },
                         );
                     });
@@ -109,14 +115,14 @@ impl<'a, T: Scalar + Send + Sync, I: SpIndex + ToPrimitive> MatVecMul<T> for CsM
                     .windows(2)
                     .zip(v_out.iter_mut())
                     .for_each(|(row_range, row_ret)| {
-                        let st = row_range.get_unchecked(0).to_usize().unwrap();
-                        let nn = row_range.get_unchecked(1).to_usize().unwrap() - st;
+                        let st = row_range.get_unchecked(0).as_usize();
+                        let nn = row_range.get_unchecked(1).as_usize() - st;
                         let local_idx = from_raw_parts(index_ptr.add(st), nn); // directly construct slice to avoid bound check
                         let local_dat = from_raw_parts(data_ptr.add(st), nn);
                         *row_ret = local_idx.iter().zip(local_dat.iter()).fold(
                             T::zero(),
                             |acc, (&lid, &ldat)| {
-                                acc + *v_in.get_unchecked(lid.to_usize().unwrap()) * ldat
+                                acc + *v_in.get_unchecked(lid.as_usize()) * ldat
                             },
                         );
                     });
@@ -152,7 +158,7 @@ unsafe impl<T: Send> Send for SendPtr<T> {}
 #[cfg(feature = "parallel")]
 unsafe impl<T: Send> Sync for SendPtr<T> {}
 
-impl<T: Scalar + Send + Sync, I: SpIndex + 'static> MatVecMul<T> for CsMatI<T, I> {
+impl<T: Scalar + Send + Sync, I: SpIndex + AsUsize> MatVecMul<T> for CsMatI<T, I> {
     #[inline]
     fn mul_vec(&self, v_in: &[T], v_out: &mut [T]) {
         self.view().mul_vec(v_in, v_out);
@@ -173,6 +179,23 @@ impl<T: Scalar + Send + Sync, I: SpIndex + 'static> MatVecMul<T> for CsMatI<T, I
         self.view().mul_vec_dot_unchecked(v_in, v_out)
     }
 }
+macro_rules! to_usize {
+    ($ty:ty) => {
+        impl AsUsize for $ty {
+            #[inline(always)]
+            fn as_usize(&self) -> usize {
+                *self as usize
+            }
+        }
+    };
+}
+
+to_usize! {i32}
+to_usize! {u32}
+to_usize! {u64}
+to_usize! {usize}
+
+// --------------------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
