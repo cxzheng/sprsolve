@@ -3,7 +3,7 @@ use num::ToPrimitive;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 use sprs::{CompressedStorage, CsMatI, CsMatViewI, SpIndex};
-use std::slice::from_raw_parts;
+use std::{slice::from_raw_parts, intrinsics::likely};
 
 /// An interface for the sparse matrix and dense vector multiplication.
 ///
@@ -64,73 +64,70 @@ impl<'a, T: Scalar + Send + Sync, I: SpIndex + ToPrimitive> MatVecMul<T> for CsM
         debug_assert!(self.cols() == v_in.len() && v_in.len() == v_out.len());
         v_out.iter_mut().for_each(|v| *v = T::zero());
 
-        match self.storage() {
-            CompressedStorage::CSR => {
-                /*
-                if cfg!(target_feature = "avx") {
-                    if super::same_type::<T, f64>() {
-                        // AVX + f64 implmentaion
-                    }
-                }
-                */
-                // back up implementation
-                // When `parallel` is enabled, use rayon to parallelize the outer index iteration
-                #[cfg(feature = "parallel")]
-                {
-                    let indptr = self.indptr();
-                    let index_ptr = SendPtr(self.indices().as_ptr());
-                    let data_ptr = SendPtr(self.data().as_ptr());
-                    indptr.par_windows(2).zip(v_out.par_iter_mut()).for_each(
-                        |(row_range, row_ret)| {
-                            let st = row_range.get_unchecked(0).to_usize().unwrap();
-                            let nn = row_range.get_unchecked(1).to_usize().unwrap() - st;
-                            let local_idx = from_raw_parts(index_ptr.0.add(st), nn); // directly construct slice to avoid bound check
-                            let local_dat = from_raw_parts(data_ptr.0.add(st), nn);
-                            *row_ret = local_idx.iter().zip(local_dat.iter()).fold(
-                                T::zero(),
-                                |acc, (&lid, &ldat)| {
-                                    acc + *v_in.get_unchecked(lid.to_usize().unwrap()) * ldat
-                                },
-                            );
-                        },
-                    );
-                }
-                #[cfg(not(feature = "parallel"))]
-                {
-                    // most basic backup implementation
-                    let indptr = self.indptr();
-                    let index_ptr = self.indices().as_ptr();
-                    let data_ptr = self.data().as_ptr();
-                    indptr
-                        .windows(2)
-                        .zip(v_out.iter_mut())
-                        .for_each(|(row_range, row_ret)| {
-                            let st = row_range.get_unchecked(0).to_usize().unwrap();
-                            let nn = row_range.get_unchecked(1).to_usize().unwrap() - st;
-                            let local_idx = from_raw_parts(index_ptr.add(st), nn); // directly construct slice to avoid bound check
-                            let local_dat = from_raw_parts(data_ptr.add(st), nn);
-                            *row_ret = local_idx.iter().zip(local_dat.iter()).fold(
-                                T::zero(),
-                                |acc, (&lid, &ldat)| {
-                                    acc + *v_in.get_unchecked(lid.to_usize().unwrap()) * ldat
-                                },
-                            );
-                        });
+        if likely(self.storage() == CompressedStorage::CSR) {
+            /*
+            if cfg!(target_feature = "avx") {
+                if super::same_type::<T, f64>() {
+                    // AVX + f64 implmentaion
                 }
             }
+            */
+            // back up implementation
+            // When `parallel` is enabled, use rayon to parallelize the outer index iteration
+            #[cfg(feature = "parallel")]
+            {
+                let indptr = self.indptr();
+                let index_ptr = SendPtr(self.indices().as_ptr());
+                let data_ptr = SendPtr(self.data().as_ptr());
+                indptr.par_windows(2).zip(v_out.par_iter_mut()).for_each(
+                    |(row_range, row_ret)| {
+                        let st = row_range.get_unchecked(0).to_usize().unwrap();
+                        let nn = row_range.get_unchecked(1).to_usize().unwrap() - st;
+                        let local_idx = from_raw_parts(index_ptr.0.add(st), nn); // directly construct slice to avoid bound check
+                        let local_dat = from_raw_parts(data_ptr.0.add(st), nn);
+                        *row_ret = local_idx.iter().zip(local_dat.iter()).fold(
+                            T::zero(),
+                            |acc, (&lid, &ldat)| {
+                                acc + *v_in.get_unchecked(lid.to_usize().unwrap()) * ldat
+                            },
+                        );
+                    },
+                );
+            }
+            #[cfg(not(feature = "parallel"))]
+            {
+                // most basic backup implementation
+                let indptr = self.indptr();
+                let index_ptr = self.indices().as_ptr();
+                let data_ptr = self.data().as_ptr();
+                indptr
+                    .windows(2)
+                    .zip(v_out.iter_mut())
+                    .for_each(|(row_range, row_ret)| {
+                        let st = row_range.get_unchecked(0).to_usize().unwrap();
+                        let nn = row_range.get_unchecked(1).to_usize().unwrap() - st;
+                        let local_idx = from_raw_parts(index_ptr.add(st), nn); // directly construct slice to avoid bound check
+                        let local_dat = from_raw_parts(data_ptr.add(st), nn);
+                        *row_ret = local_idx.iter().zip(local_dat.iter()).fold(
+                            T::zero(),
+                            |acc, (&lid, &ldat)| {
+                                acc + *v_in.get_unchecked(lid.to_usize().unwrap()) * ldat
+                            },
+                        );
+                    });
+            }
+        } else { // CSC
             // We dont' do any performance optimization for CSC yet.
             // As we haven't used it that much.
-            CompressedStorage::CSC => {
-                // initialize it
-                for (col_ind, vec) in self.outer_iterator().enumerate() {
-                    let multiplier = v_in.get_unchecked(col_ind);
-                    for (row_ind, &value) in vec.iter() {
-                        let t = v_out.get_unchecked_mut(row_ind);
-                        *t += *multiplier * value;
-                    }
+            // initialize it
+            for (col_ind, vec) in self.outer_iterator().enumerate() {
+                let multiplier = v_in.get_unchecked(col_ind);
+                for (row_ind, &value) in vec.iter() {
+                    let t = v_out.get_unchecked_mut(row_ind);
+                    *t += *multiplier * value;
                 }
             }
-        } // end match
+        }
     } // end fn
 
     unsafe fn mul_vec_dot_unchecked(&self, v_in: &[T], v_out: &mut [T]) -> T {

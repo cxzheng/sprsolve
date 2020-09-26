@@ -1,5 +1,5 @@
 use sprsolve::MatVecMul;
-use sprsolve::MklMat;
+//use sprsolve::MklMat;
 
 fn main() {
     let res = 100;
