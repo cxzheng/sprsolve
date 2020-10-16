@@ -5,6 +5,7 @@ mod bicg_stab;
 pub mod error;
 mod gauss_seidel;
 mod mat;
+mod minres;
 #[cfg(feature = "mkl")]
 mod mkl_mat;
 pub mod vecalg;
@@ -12,6 +13,7 @@ pub mod vecalg;
 pub use bicg_stab::BiCGStab;
 pub use gauss_seidel::*;
 pub use mat::MatVecMul;
+pub use minres::MinRes;
 #[cfg(feature = "mkl")]
 pub use mkl_mat::*;
 

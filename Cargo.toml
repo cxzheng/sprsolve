@@ -1,6 +1,6 @@
 [package]
 name = "sprsolve"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Changxi Zheng <cxz@cs.columbia.edu>"]
 edition = "2018"
 

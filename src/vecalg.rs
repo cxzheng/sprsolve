@@ -93,7 +93,7 @@ where
     axpy_fallback(a, &vec1[..], &mut vec2[..])
 }
 
-/// The `axpby` operation as in MKL: vec2 = vec2 + a*vec1
+/// The `axpby` operation as in MKL: vec2 = b*vec2 + a*vec1
 ///
 /// # Example
 ///

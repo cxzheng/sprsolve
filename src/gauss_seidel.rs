@@ -84,7 +84,7 @@ impl<'data, T: Scalar + PartialOrd + Send + Sync> GaussSeidel<'data, T> {
                 *x.get_unchecked_mut(row_ind) = (*rhs_v - sigma) / *diag;
             }
         }
-        let b_norm = num_traits::Float::sqrt(b_norm);
+        let tol2 = eps * num_traits::Float::sqrt(b_norm);
 
         unsafe {
             self.A.mul_vec_unchecked(x, &mut self.workspace[0..n_rows]);
@@ -103,7 +103,7 @@ impl<'data, T: Scalar + PartialOrd + Send + Sync> GaussSeidel<'data, T> {
         //    .fold(T::Real::zero(), |acc, x| acc + x.square());
         let res = norm2(&self.workspace[..n_rows]);
 
-        if res <= eps * b_norm {
+        if res <= tol2 {
             return Ok((1, res));
         }
 
@@ -132,7 +132,7 @@ impl<'data, T: Scalar + PartialOrd + Send + Sync> GaussSeidel<'data, T> {
             // |r|
             let res = norm2(&self.workspace[..n_rows]);
 
-            if res <= eps * b_norm {
+            if res <= tol2 {
                 return Ok((it, res));
             }
         }
