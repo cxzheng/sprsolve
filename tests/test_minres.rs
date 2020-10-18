@@ -11,6 +11,7 @@ fn test_minres() {
 
     let mut x = vec![0_f64; rows * cols];
     let mut solver = sprsolve::MinRes::new(&lap, lap.cols());
+    //let mut solver = sprsolve::BiCGStab::new(&lap, lap.cols());
     let (iters, res) = solver
         .solve(rhs.as_slice(), x.as_mut_slice(), 300, 1E-22)
         .unwrap();
