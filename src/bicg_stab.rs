@@ -160,7 +160,7 @@ impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
             // alpha = rho / r0.v
             let tmp = conj_dot(&*r0, &*v);
             if unlikely(tmp.abs() <= T::Real::zero()) {
-                //println!("{}", tmp);
+                println!("{}", tmp);
                 return Err(SolverError::BreakDown(its));
             }
 

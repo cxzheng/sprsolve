@@ -5,6 +5,7 @@ use cauchy::Scalar;
 use num_traits::{float::*, One};
 use std::{intrinsics::unlikely, ptr::copy_nonoverlapping, slice::from_raw_parts_mut};
 
+/// **NOTE:** So far, the MINRES solver works only for real-valued systems
 #[allow(non_snake_case)]
 pub struct MinRes<'data, T: Scalar, M: MatVecMul<T>> {
     A: &'data M,
