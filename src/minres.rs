@@ -94,7 +94,7 @@ impl<'data, T: Scalar, M: MatVecMul<T>> MinRes<'data, T, M> {
             self.A.mul_vec(v, v_new); // v_new = A*v
             axpy(T::from_real(-beta), &*v_old, &mut *v_new); // v_new = A*v - beta*v_old
 
-            let alpha = conj_dot(&*v_new, &*v); // v_new . v
+            let alpha = conj_dot(&*v_new, &*v); // v_new . v    SHOULD WE USE DOT here?
             axpy(-alpha, &*v, &mut *v_new); // v_new -= alpha * v
             beta_new = norm2(&*v_new); // beta_new = |v_new|
             scale(T::from_real(T::Real::one() / beta_new), &mut *v_new);

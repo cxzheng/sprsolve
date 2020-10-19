@@ -10,7 +10,6 @@ fn test_minres_complex() {
         "grid laplacian nnz structure:\n{}",
         sprs::visu::nnz_pattern_formatter(lap.view()),
     );
-    assert!(sprs::is_symmetric(&lap));
 
     let mut x = vec![Complex64::default(); rows * cols];
     let mut solver = sprsolve::MinRes::new(&lap, lap.cols());
@@ -42,6 +41,8 @@ fn grid_laplacian(shape: (usize, usize)) -> (sprs::CsMat<Complex64>, Vec<Complex
     let mut rhs = vec![Complex64::new(0., 0.); n];
     let mut ret_a = sprs::TriMat::<Complex64>::new((n, n));
 
+    let off_diag = |rid: usize, cid: usize| if rid > cid { Complex64::new(1., 0.5) } else { Complex64::new(1., -0.5) };
+
     for i in 0..rows {
         for j in 0..cols {
             let vid = i * cols + j;
@@ -51,27 +52,30 @@ fn grid_laplacian(shape: (usize, usize)) -> (sprs::CsMat<Complex64>, Vec<Complex
             ret_a.add_triplet(vid, vid, c);
             rv += c * val(i, j);
 
-            let c = Complex64::new(1., 0.5);
             if i > 0 {
                 let tid = (i - 1) * cols + j;
+                let c = off_diag(vid, tid);
                 ret_a.add_triplet(vid, tid, c);
                 rv += c * val(i-1, j);
             } 
 
             if j > 0 {
                 let tid = i * cols + j - 1;
+                let c = off_diag(vid, tid);
                 ret_a.add_triplet(vid, tid, c);
                 rv += c * val(i, j - 1);
             } 
 
             if i < rows - 1 {
                 let tid = (i + 1) * cols + j;
+                let c = off_diag(vid, tid);
                 ret_a.add_triplet(vid, tid, c);
                 rv += c * val(i+1, j);
             } 
 
             if j < cols - 1 {
                 let tid = i * cols + j + 1;
+                let c = off_diag(vid, tid);
                 ret_a.add_triplet(vid, tid, c);
                 rv += c * val(i, j+1);
             } 
