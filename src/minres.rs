@@ -92,14 +92,16 @@ impl<'data, T: Scalar, M: MatVecMul<T>> MinRes<'data, T, M> {
             v = unsafe { from_raw_parts_mut(v_new.as_mut_ptr(), n) }; // v <- v_new
             v_new = unsafe { from_raw_parts_mut(v_t_ptr, n) }; // v_new <- v_old
             self.A.mul_vec(v, v_new); // v_new = A*v
-            axpy(T::from_real(-beta), &*v_old, &mut *v_new); // v_new = A*v - beta*v_old
+            // v_new = A*v - beta*v_old
+            axpy(T::from_real(-beta), &*v_old, &mut *v_new);  // >>> A*q_k - beta_{k-1} q_{k-1}
 
             // compute the new Lanczos vector
+            // See P. 562 of Matrix Computation Ed.4
             // alpha = (A*v - beta * v_old).v
-            let alpha = conj_dot(&*v_new, &*v); // v_new . v    SHOULD WE USE DOT here?
-            axpy(-alpha, &*v, &mut *v_new); // v_new -= alpha * v
-            beta_new = norm2(&*v_new); // beta_new = |v_new|
-            scale(T::from_real(T::Real::one() / beta_new), &mut *v_new);
+            let alpha = conj_dot(&*v_new, &*v); // v_new . v    
+            axpy(-alpha, &*v, &mut *v_new); // v_new -= alpha * v           >>> v_new is now r_k 
+            beta_new = norm2(&*v_new); // beta_new = |v_new|                >>> beta_new is beta_k
+            scale(T::from_real(T::Real::one() / beta_new), &mut *v_new); // >>> v_new is now q_k+1
 
             // Givens rotation
             let r2 = alpha * s + (c * c_old).mul_real(beta); // s, s_old, c and c_old are still from previous iteration
