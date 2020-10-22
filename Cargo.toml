@@ -19,7 +19,7 @@ cauchy = "0.3.0"
 
 sprs = { git = "https://github.com/cxzheng/sprs.git", default-features = false }
 
-rayon = { version = "1.4.1", optional = true }
+rayon = { version = "1.5.0", optional = true }
 
 [dependencies.mkl-sys]
 git = "https://github.com/cxzheng/mkl-sys.git" 
