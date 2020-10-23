@@ -1,4 +1,6 @@
 use cauchy::Scalar;
+use num_traits::float::Float;
+use num_complex::Complex;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 use sprs::{CompressedStorage, CsMatI, CsMatViewI, SpIndex};
@@ -34,6 +36,26 @@ pub trait MatVecMul<T: Scalar> {
     /// This method will not check the dimension agreement. If the dimensions don't match,
     /// they will result in *[undefined behavior](https://doc.rust-lang.org/reference/behavior-considered-undefined.html)*.
     unsafe fn mul_vec_dot_unchecked(&self, v_in: &[T], v_out: &mut [T]) -> T;
+}
+
+/// Define the interfaces that allow the conjugate operation when taking matrix-vector multiplication.
+pub trait MatVecConjMul<T: Scalar> {
+    /// Multiply this matrix with the _conjugate_ of the vector `v_in` and put the results
+    /// in `v_out`, i.e.,
+    /// $$v_{out} = M v_{in}^H$$
+    ///
+    /// This method will check the dimension agreement and panick if the dimensions don't match.
+    fn mv_conj(&self, v_in: &[T], v_out: &mut [T]);
+
+    /// Multiply this matrix with the _conjugate_ of the vector `v_in` and put the results
+    /// in `v_out`, i.e.,
+    /// $$v_{out} = M v_{in}^H$$
+    /// 
+    /// # Safety
+    ///
+    /// This method will not check the dimension agreement. If the dimensions don't match,
+    /// they will result in *[undefined behavior](https://doc.rust-lang.org/reference/behavior-considered-undefined.html)*.
+    unsafe fn mv_conj_unchecked(&self, v_in: &[T], v_out: &mut [T]);
 }
 
 /// The trait to convert a value into usize.
@@ -150,6 +172,16 @@ impl<'a, T: Scalar + Send + Sync, I: SpIndex + AsUsize> MatVecMul<T> for CsMatVi
     }
 }
 
+impl<'a, T: Scalar + Send + Sync, I: SpIndex + AsUsize> MatVecConjMul<T> for CsMatViewI<'a, T, I> {
+    #[inline]
+    fn mv_conj(&self, v_in: &[T], v_out: &mut [T]) {
+    }
+
+    #[inline]
+    unsafe fn mv_conj_unchecked(&self, v_in: &[T], v_out: &mut [T]) {
+    }
+}
+
 /// Wrap type to send the pointer across the thread
 #[cfg(feature = "parallel")]
 struct SendPtr<T: Send>(*const T);
@@ -179,6 +211,19 @@ impl<T: Scalar + Send + Sync, I: SpIndex + AsUsize> MatVecMul<T> for CsMatI<T, I
         self.view().mul_vec_dot_unchecked(v_in, v_out)
     }
 }
+
+impl<T: Scalar + Send + Sync, I: SpIndex + AsUsize> MatVecConjMul<T> for CsMatI<T, I> {
+    #[inline]
+    fn mv_conj(&self, v_in: &[T], v_out: &mut [T]) {
+        self.view().mv_conj(v_in, v_out)
+    }
+
+    #[inline]
+    unsafe fn mv_conj_unchecked(&self, v_in: &[T], v_out: &mut [T]) {
+        self.view().mv_conj_unchecked(v_in, v_out)
+    }
+}
+
 macro_rules! to_usize {
     ($ty:ty) => {
         impl AsUsize for $ty {

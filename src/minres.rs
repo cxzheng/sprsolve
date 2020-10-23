@@ -5,7 +5,7 @@ use cauchy::Scalar;
 use num_traits::{float::*, One};
 use std::{intrinsics::unlikely, ptr::copy_nonoverlapping, slice::from_raw_parts_mut};
 
-/// **NOTE:** So far, the MINRES solver works only for real-valued systems
+/// **NOTE:** So far, this MINRES solver works only for real-valued systems
 #[allow(non_snake_case)]
 pub struct MinRes<'data, T: Scalar, M: MatVecMul<T>> {
     A: &'data M,
@@ -98,19 +98,27 @@ impl<'data, T: Scalar, M: MatVecMul<T>> MinRes<'data, T, M> {
             // compute the new Lanczos vector
             // See P. 562 of Matrix Computation Ed.4
             // alpha = (A*v - beta * v_old).v
-            let alpha = conj_dot(&*v_new, &*v); // v_new . v    
+            // >>> beta is now beta_{k-1}
+            let alpha = conj_dot(&*v_new, &*v); // v_new . v                >>> alpha is alpha_k
             axpy(-alpha, &*v, &mut *v_new); // v_new -= alpha * v           >>> v_new is now r_k 
             beta_new = norm2(&*v_new); // beta_new = |v_new|                >>> beta_new is beta_k
             scale(T::from_real(T::Real::one() / beta_new), &mut *v_new); // >>> v_new is now q_k+1
 
-            // Givens rotation
+            // --- Givens rotation ---
+            // G^T_{k-1} = [ c_old  s_old ]
+            //             [-s_old  c_old ]
             let r2 = alpha * s + (c * c_old).mul_real(beta); // s, s_old, c and c_old are still from previous iteration
             let r3 = s_old.mul_real(beta); // s, s_old, c and c_old are still from previous iteration
+
+            // previous two Givens rotation applied to [0 beta_{k-1} alpha_k] -> [x c*beta_{k-1}]
             let r1_hat = c * alpha - (c_old * s).mul_real(beta);
+            // now need to construct Givens rotation for [r1_hat beta_k]
             let r1 = (r1_hat * r1_hat).add_real(beta_new * beta_new).sqrt();
 
             c_old = c; // store for next iteration
             s_old = s; // store for next iteration
+            // [ c  s ]
+            // [-s  c ]
             c = r1_hat / r1; // new cosine
             s = T::from_real(beta_new) / r1; // new sine
 
