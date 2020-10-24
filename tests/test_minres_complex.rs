@@ -3,7 +3,7 @@ use num_complex::Complex64;
 #[test]
 //#[ignore]
 fn test_minres_complex() {
-    let (rows, cols) = (10, 10);
+    let (rows, cols) = (8, 8);
     let (lap, rhs) = grid_laplacian((rows, cols));
 
     println!(
@@ -51,7 +51,7 @@ fn grid_laplacian(shape: (usize, usize)) -> (sprs::CsMat<Complex64>, Vec<Complex
         }
     };
 
-    let c = Complex64::new(-4., -4.);
+    let c = Complex64::new(-2., -2.);
     for i in 0..rows {
         for j in 0..cols {
             let vid = i * cols + j;
