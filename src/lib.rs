@@ -2,20 +2,20 @@
 #![feature(core_intrinsics)]
 
 mod bicg_stab;
+mod cs_minres;
 pub mod error;
 mod gauss_seidel;
 mod mat;
 mod minres;
-mod cs_minres;
 #[cfg(feature = "mkl")]
 mod mkl_mat;
 pub mod vecalg;
 
 pub use bicg_stab::BiCGStab;
+pub use cs_minres::CSMinRes;
 pub use gauss_seidel::*;
 pub use mat::MatVecMul;
 pub use minres::MinRes;
-pub use cs_minres::CSMinRes;
 #[cfg(feature = "mkl")]
 pub use mkl_mat::*;
 

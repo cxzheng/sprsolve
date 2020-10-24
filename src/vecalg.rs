@@ -79,6 +79,30 @@ where
     scale_fallback(a, &mut vec[..]);
 }
 
+/// Compute vec = vec * a,
+/// where a is a real number
+#[cfg(not(feature = "mkl"))]
+#[inline]
+pub fn rscale<T, VEC>(a: T::Real, mut vec: VEC)
+where
+    T: Scalar,
+    VEC: DerefMut<Target = [T]>,
+{
+    rscale_fallback(a, &mut vec[..]);
+}
+
+#[cfg(not(feature = "mkl"))]
+#[inline]
+pub fn conj<T, IN, OUT>(vec_in: IN, mut vec_out: OUT)
+where
+    T: Scalar,
+    IN: Deref<Target = [T]>,
+    OUT: DerefMut<Target = [T]>,
+{
+    assert_eq!(vec_in[..].len(), vec_out[..].len());
+    conj_fallback(&vec_in[..], &mut vec_out[..])
+}
+
 /// The standard `axpy` operation as in BLAS: vec2 = vec2 + a*vec1
 #[cfg(not(feature = "mkl"))]
 #[inline]
@@ -128,7 +152,7 @@ where
     IN2: Deref<Target = [T]>,
 {
     let n = vec1[..].len();
-    assert!(n == vec2[..].len());
+    assert_eq!(n, vec2[..].len());
 
     // Use only if the vector is large enough to be worth it
     if n > DOT_BLAS_CUTOFF && n < std::os::raw::c_int::max_value() as usize {
@@ -197,7 +221,7 @@ where
     IN2: Deref<Target = [T]>,
 {
     let n = vec1[..].len();
-    assert!(n == vec2[..].len());
+    assert_eq!(n, vec2[..].len());
 
     // Use only if the vector is large enough to be worth it
     if n > DOT_BLAS_CUTOFF && n < std::os::raw::c_int::max_value() as usize {
@@ -316,6 +340,102 @@ where
         scale! {f64, cblas_zscal, {complex}};
     }
     scale_fallback(a, &mut vec[..]);
+}
+
+/// Compute vec = vec * a
+#[cfg(feature = "mkl")]
+pub fn rscale<T, VEC>(a: T::Real, mut vec: VEC)
+where
+    T: Scalar,
+    VEC: DerefMut<Target = [T]>,
+{
+    let n = vec[..].len();
+    if n > SCALE_BLAS_CUTOFF && n < std::os::raw::c_int::max_value() as usize {
+        macro_rules! scale {
+            ($ty:ty, $func:ident, {}) => {
+                if super::same_type::<T, $ty>() {
+                    unsafe {
+                        $func(
+                            n as i32, // this is safe because the assert! above
+                            super::cast_as::<T::Real, $ty>(&a),
+                            vec[..].as_mut_ptr() as *mut $ty,
+                            1,
+                        )
+                    };
+                    return;
+                }
+            };
+            ($ty:ty, $func:ident, {complex}) => {
+                if super::same_type::<T, num_complex::Complex<$ty>>() {
+                    unsafe {
+                        $func(
+                            n as i32, // this is safe because the assert! above
+                            super::cast_as::<T::Real, $ty>(&a),
+                            vec[..].as_mut_ptr() as *mut c_void,
+                            1,
+                        );
+                    }
+                    return;
+                }
+            };
+        }
+        scale! {f32, cblas_sscal, {}};
+        scale! {f64, cblas_dscal, {}};
+        scale! {f32, cblas_csscal, {complex}};
+        scale! {f64, cblas_zdscal, {complex}};
+    }
+    rscale_fallback(a, &mut vec[..]);
+}
+
+#[cfg(feature = "mkl")]
+#[inline]
+pub fn conj<T, IN, OUT>(vec_in: IN, mut vec_out: OUT)
+where
+    T: Scalar,
+    IN: Deref<Target = [T]>,
+    OUT: DerefMut<Target = [T]>,
+{
+    let n = vec_in[..].len();
+    assert_eq!(n, vec_out[..].len());
+    if n > SCALE_BLAS_CUTOFF && n < std::os::raw::c_int::max_value() as usize {
+        macro_rules! conj {
+            ($ty:ty, $func:ident, {}) => {
+                if super::same_type::<T, $ty>() {
+                    unsafe {
+                        $func(
+                            n as i32,
+                            vec_in[..].as_ptr() as *const $ty,
+                            1,
+                            vec_out[..].as_mut_ptr() as *mut $ty,
+                            1,
+                        );
+                    }
+                    return;
+                }
+            };
+            ($ty:ty, $func:ident, {$func2:ident}) => {
+                if super::same_type::<T, num_complex::Complex<$ty>>() {
+                    unsafe {
+                        $func(
+                            n as i32,
+                            vec_in[..].as_ptr() as *const c_void,
+                            1,
+                            vec_out[..].as_mut_ptr() as *mut c_void,
+                            1,
+                        );
+                        let ptr = vec_out[..].as_mut_ptr() as *mut $ty;
+                        $func2(n as i32, -1., ptr.add(1), 2);
+                    }
+                    return;
+                }
+            };
+        }
+        conj! {f32, cblas_scopy, {}};
+        conj! {f64, cblas_dcopy, {}};
+        conj! {f32, cblas_ccopy, {cblas_sscal}};
+        conj! {f64, cblas_zcopy, {cblas_dscal}};
+    }
+    conj_fallback(&vec_in[..], &mut vec_out[..])
 }
 
 #[cfg(feature = "mkl")]
@@ -455,6 +575,14 @@ fn axpy_fallback<S: Copy, T: Scalar + Mul<S, Output = T>>(a: S, vec1: &[T], vec2
 }
 
 #[inline]
+fn conj_fallback<T: Scalar>(vec_in: &[T], vec_out: &mut [T]) {
+    vec_out
+        .iter_mut()
+        .zip(vec_in.iter())
+        .for_each(|(y, x)| *y = x.conj());
+}
+
+#[inline]
 fn axpby_fallback<S: Copy, T: Scalar + Mul<S, Output = T>>(a: S, vec1: &[T], b: S, vec2: &mut [T]) {
     vec2.iter_mut()
         .zip(vec1.iter())
@@ -464,6 +592,10 @@ fn axpby_fallback<S: Copy, T: Scalar + Mul<S, Output = T>>(a: S, vec1: &[T], b: 
 #[inline(always)]
 fn scale_fallback<T: Scalar>(a: T, vec: &mut [T]) {
     vec.iter_mut().for_each(|v| *v *= a);
+}
+#[inline(always)]
+fn rscale_fallback<T: Scalar>(a: T::Real, vec: &mut [T]) {
+    vec.iter_mut().for_each(|v| *v = v.mul_real(a));
 }
 
 #[inline]
@@ -662,6 +794,49 @@ mod tests {
         }
         for i in 0..a.len() {
             approx::assert_abs_diff_eq!(-6., b[i]);
+        }
+    }
+    #[test]
+    fn test_conj() {
+        use cauchy::c64;
+        let a = vec![c64::new(1., 1.); 100];
+        let mut b = vec![c64::new(1., 1.); 100];
+        conj_fallback(&a, &mut b);
+        for (x, y) in b.iter().zip(a.iter()) {
+            approx::assert_abs_diff_eq!(x.im, -y.im);
+        }
+        let a = vec![c64::new(3., 2.); 100];
+        conj(a.as_slice(), b.as_mut_slice());
+        //println!("{:?}", b);
+        for (x, y) in b.iter().zip(a.iter()) {
+            approx::assert_abs_diff_eq!(x.im, -y.im);
+        }
+    }
+    #[test]
+    fn test_conj2() {
+        use cauchy::c32;
+        let a = vec![c32::new(1., 1.); 100];
+        let mut b = vec![c32::new(1., 1.); 100];
+        conj_fallback(&a, &mut b);
+        for (x, y) in b.iter().zip(a.iter()) {
+            approx::assert_abs_diff_eq!(x.im, -y.im);
+        }
+        let a = vec![c32::new(3., 2.); 100];
+        conj(a.as_slice(), b.as_mut_slice());
+        //println!("{:?}", b);
+        for (x, y) in b.iter().zip(a.iter()) {
+            approx::assert_abs_diff_eq!(x.im, -y.im);
+        }
+    }
+    #[test]
+    fn test_rscale() {
+        use cauchy::c64;
+        let mut b = vec![c64::new(1., 2.); 100];
+        rscale(9., b.as_mut_slice());
+        //println!("{:?}", b);
+        for x in b.iter() {
+            approx::assert_abs_diff_eq!(x.re, 9.);
+            approx::assert_abs_diff_eq!(x.im, 18.);
         }
     }
 }
