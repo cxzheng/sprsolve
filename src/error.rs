@@ -16,4 +16,7 @@ pub enum SolverError {
 
     #[error("Solver break down: its #{0}")]
     BreakDown(usize),
+
+    #[error("Invalid preconditioner: {0}")]
+    InvalidPreconditioner(String),
 }

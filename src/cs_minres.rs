@@ -122,15 +122,16 @@ impl<'data, T: Scalar, M: MatVecMul<T>> CSMinRes<'data, T, M> {
             let r1_hat = c.conj() * alpha - tr.mul_real(s);
 
             // now need to construct Givens rotation for [r1_hat beta_k]
-            let r1 = num_traits::Float::sqrt(r1_hat.square() + beta_new.square());
+            let r1_inv =
+                T::Real::one() / num_traits::Float::sqrt(r1_hat.square() + beta_new.square());
 
             c_old = c; // store for next iteration
             s_old = s; // store for next iteration
 
             // [ c  s   ]
             // [-s  c^H ]
-            c = r1_hat.conj().div_real(r1); // new cosine
-            s = beta_new / r1; // new sine
+            c = r1_hat.conj().mul_real(r1_inv); // new cosine
+            s = beta_new * r1_inv; // new sine
 
             // Update solution
             let p_t_ptr = p_oold.as_mut_ptr();
@@ -142,7 +143,7 @@ impl<'data, T: Scalar, M: MatVecMul<T>> CSMinRes<'data, T, M> {
             }
             axpy(-r2, &*p_old, &mut *p); // p = conj(q_k) - r2*p_old
             axpy(T::from_real(-r3), &*p_oold, &mut *p); // p = conj(q_k) - r2*p_old - r3*p_oold
-            rscale(T::Real::one() / r1, &mut *p);
+            rscale(r1_inv, &mut *p);
 
             axpy((c * eta).mul_real(beta_one), &*p, &mut *x); //  x += beta_one*c*eta*p
 

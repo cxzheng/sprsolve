@@ -9,6 +9,7 @@ mod mat;
 mod minres;
 #[cfg(feature = "mkl")]
 mod mkl_mat;
+pub mod precond;
 pub mod vecalg;
 
 pub use bicg_stab::BiCGStab;

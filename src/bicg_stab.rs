@@ -30,6 +30,19 @@ impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
         }
     }
 
+    /// Solves Ax = b, with a preconditioner
+    #[allow(clippy::many_single_char_names)]
+    pub fn precond_solve<P: MatVecMul<T>>(
+        &mut self,
+        precond: &P,
+        rhs: &[T],
+        x: &mut [T],
+        max_iter: usize,
+        tol: T::Real,
+    ) -> SolveResult<(usize, T::Real)> {
+        unimplemented!()
+    }
+
     /// Solves Ax = b, without preconditioner
     #[allow(clippy::many_single_char_names)]
     pub fn solve(
@@ -160,7 +173,7 @@ impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
             // alpha = rho / r0.v
             let tmp = conj_dot(&*r0, &*v);
             if unlikely(tmp.abs() <= T::Real::zero()) {
-                println!("{}", tmp);
+                //println!("{}", tmp);
                 return Err(SolverError::BreakDown(its));
             }
 
