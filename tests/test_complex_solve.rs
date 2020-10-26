@@ -61,6 +61,32 @@ fn test_precond_minres_complex() {
     }
 }
 
+#[test]
+fn test_bicgstab_complex_1() {
+    let (rows, cols) = (8, 8);
+    let (lap, rhs, diag) = grid_laplacian_diag((rows, cols));
+
+    let mut x = vec![Complex64::default(); rows * cols];
+    let precond = sprsolve::precond::DiagPrecond::new(diag.as_slice());
+    //let mut solver = sprsolve::MinRes::new(&lap, lap.cols());
+    let mut solver = sprsolve::BiCGStab::new(&lap, lap.cols());
+    let (iters, res) = solver
+        .precond_solve(&precond, rhs.as_slice(), x.as_mut_slice(), 300, 1E-22)
+        //.solve(rhs.as_slice(), x.as_mut_slice(), 300, 1E-22)
+        .unwrap();
+    println!(
+        "Solved system in {} iterations with residual error {}",
+        iters,
+        res.sqrt()
+    );
+    for i in 0..rows {
+        for j in 0..cols {
+            print!("{} ", x[i * rows + j]);
+        }
+        println!("");
+    }
+}
+
 #[inline]
 fn val<T: num_traits::ToPrimitive>(row: T, col: T) -> Complex64 {
     Complex64::new(row.to_f64().unwrap(), col.to_f64().unwrap())

@@ -105,7 +105,7 @@ impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
         }
         // tmp = t.t
         let tmp = conj_dot(&*t, &*t);
-        let w = if likely(tmp.re() > T::Real::zero()) {
+        let mut w = if likely(tmp.re() > T::Real::zero()) {
             // w = t.s/tmp ==> w = t.r/tmp
             conj_dot(&*t, &*r) / tmp
         } else {
@@ -176,7 +176,7 @@ impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
             }
             // tmp = t.t
             let tmp = conj_dot(&*t, &*t);
-            let w = if likely(tmp.re() > T::Real::zero()) {
+            w = if likely(tmp.re() > T::Real::zero()) {
                 // NOTE: Here we could have used `mul_vec_dot` to combine t.r with A*r above.
                 // But this won't be applicable for precond. BiCGStab method. So we don't do it for now.
                 // w = t.s/tmp ==> w = t.r/tmp
@@ -276,7 +276,7 @@ impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
         }
         // tmp = t.t
         let tmp = conj_dot(&*t, &*t);
-        let w = if likely(tmp.re() > T::Real::zero()) {
+        let mut w = if likely(tmp.re() > T::Real::zero()) {
             // w = t.s/tmp ==> w = t.r/tmp
             conj_dot(&*t, &*r) / tmp
         } else {
@@ -345,7 +345,7 @@ impl<'data, T: Scalar + Send + Sync, M: MatVecMul<T>> BiCGStab<'data, T, M> {
             }
             // tmp = t.t
             let tmp = conj_dot(&*t, &*t);
-            let w = if likely(tmp.re() > T::Real::zero()) {
+            w = if likely(tmp.re() > T::Real::zero()) {
                 conj_dot(&*t, &*r) / tmp
             } else {
                 T::zero()
