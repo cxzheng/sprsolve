@@ -172,7 +172,7 @@ impl<'data, T: Scalar, M: MatVecMul<T>> MinRes<'data, T, M> {
     }
 
     /// Solves Ax = b, with a preconditioner
-    /// 
+    ///
     /// **NOTE:** The preconditioner $M$ must be able to written as $M = C^H C$.
     #[allow(clippy::many_single_char_names)]
     pub fn precond_solve<P: MatVecMul<T>>(
