@@ -43,9 +43,9 @@ fn grid_laplacian_diag(
 
     let off_diag = |rid: usize, cid: usize| {
         if rid > cid {
-            Complex64::new(1.,-2.5)
+            Complex64::new(1., -2.5)
         } else {
-            Complex64::new(1.,-2.5)
+            Complex64::new(1., -2.5)
         }
     };
 

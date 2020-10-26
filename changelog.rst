@@ -3,7 +3,7 @@ Changelog
 =========
 
 - 0.1.4
-    - Enable use use of Preconditioner in `MinRes`, `CSMinRes`, and `BiCGStab`
+    - Enable the use of Preconditioner in `MinRes` and `BiCGStab`
 
 - 0.1.3
     - Added MINRES solver for symmetric complex system (not Hermitian)

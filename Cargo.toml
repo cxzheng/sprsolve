@@ -1,6 +1,6 @@
 [package]
 name = "sprsolve"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Changxi Zheng <cxz@cs.columbia.edu>"]
 edition = "2018"
 
@@ -31,7 +31,7 @@ optional = true
 debug = true    # for performance opt
 
 [dev-dependencies]
-approx = "0.3.2"
+approx = "0.4.0"
 criterion = { version = "0.3.3", features = ['real_blackbox'] }
 
 [[bench]]
