@@ -12,9 +12,9 @@ mkl = ["mkl-sys"]
 parallel = ["rayon"]   # use rayon for parallel computing
 
 [dependencies]
-thiserror = "1.0.21"
-num-traits = "0.2.12"
-num-complex = "0.3.0"
+thiserror = "1.0.22"
+num-traits = "0.2.14"
+num-complex = "0.3.1"
 cauchy = "0.3.0"
 
 sprs = { git = "https://github.com/cxzheng/sprs.git", default-features = false }
