@@ -2,6 +2,13 @@
 Rust implementation of various sparse linear solvers, with pedagogical and research purposes in mind.
 Still working in progress ...
 
+## Solvers implemented
+
+Iterative solvers
+* MINRES 
+* BiCGStab
+* CSMINRES: MINRES for symmetric complex systems
+
 ## Performance
 
 When using MKL (by enabling _mkl_ feature), test to use the features between 
